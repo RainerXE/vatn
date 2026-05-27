@@ -1,0 +1,520 @@
+[
+  {
+    "name": "io.helidon.builder.api.RuntimeType.Api",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.config.Config",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.config.ConfigFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.config.ConfigFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.config.ConfiguredProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.config.NamedService",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.DefaultMapperProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.DefaultMapperProvider__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.DefaultResolverService",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.DefaultResolverService__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.DefaultsResolver",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.MapperManager",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.Mappers",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.MappersFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.MappersFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.mapper.spi.MapperProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.common.resumable.Resumable",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.Config",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.ConfigProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.ConfigProvider__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.ConfigurationValueFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.ConfigurationValueFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.ConfiguredProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.MetaConfig",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.MetaConfigFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.MetaConfigFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.config.NamedService",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.Headers",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.Headers__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.HttpPrologue",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.HttpPrologue__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.ServerRequestHeaders",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.http.ServerRequestHeaders__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MeterRegistry",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MeterRegistryFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MeterRegistryFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MetricsFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MetricsFactoryFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.MetricsFactoryFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.metrics.api.Wrapper",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.security.Security",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.security.SecurityFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.security.SecurityFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.EventManager",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.EventManagerImpl",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.EventManagerImpl__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.InterceptionMetadata",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.InterceptionMetadata__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.PerRequestScopeHandler",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.PerRequestScopeHandler__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.Scopes",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.Scopes__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.Service.ScopeHandler",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.ServiceRegistry",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.service.registry.ServiceRegistry__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.tracing.Tracer",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.tracing.TracerFactory",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.tracing.TracerFactory__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webclient.api.DefaultErrorHandling",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webclient.api.DefaultErrorHandling__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webclient.api.RestClient.ErrorHandling",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.LoomServer",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.LoomServer__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.RequestScopeFeatureProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.RequestScopeFeatureProvider__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.WebServer",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.WebServerService",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.WebServerService__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.WebServerStarterService",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.WebServerStarterService__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.HttpEntryPoint.EntryPoints",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.HttpEntryPointsImpl",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.HttpEntryPointsImpl__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.HttpRequest",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.ServerRequest",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.ServerRequest__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.ServerResponse",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.http.ServerResponse__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.spi.ServerFeature",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.spi.ServerFeatureProvider",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.websocket.WsServerFeature",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "io.helidon.webserver.websocket.WsServerFeature__ServiceDescriptor",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true, "allPublicFields": true
+  },
+  {
+    "name": "dev.vatn.core.VDiscoveryImpl$LatticeNodeInfo",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.core.VDiscoveryImpl$LatticePeerInfo",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest$Execution",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest$Execution$Mode",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest$Execution$Transport",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest$Capability",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.spec.VPluginManifest$Capability$Type",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "dev.vatn.core.utils.VatnConfigManager$ConfigData",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allPublicFields": true, "allDeclaredFields": true
+  },
+  {
+    "name": "dev.vatn.api.security.VTrustLevel",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "java.util.LinkedHashMap",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "java.util.HashMap",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "java.util.ArrayList",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "org.pf4j.DefaultPluginManager",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "org.pf4j.AbstractPluginManager",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "org.pf4j.PluginWrapper",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.pf4j.PluginState",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "org.pf4j.RuntimeMode",
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true, "allPublicFields": true
+  },
+  {
+    "name": "org.sqlite.JDBC",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true
+  },
+  {
+    "name": "org.sqlite.SQLiteDataSource",
+    "allDeclaredConstructors": true, "allPublicConstructors": true,
+    "allDeclaredMethods": true, "allPublicMethods": true,
+    "allDeclaredFields": true
+  }
+]

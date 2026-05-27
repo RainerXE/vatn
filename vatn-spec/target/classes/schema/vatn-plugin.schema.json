@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vatn.dev/schemas/vatn-plugin.schema.json",
+  "title": "VATN Plugin Manifest",
+  "description": "Formal specification for a language-agnostic VATN plugin",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "vatnVersion",
+    "execution",
+    "capabilities"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique plugin identifier (e.g. dev.frejay.tools.python)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable plugin name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the plugin"
+    },
+    "vatnVersion": {
+      "type": "string",
+      "description": "VATN contract version required (e.g. >=1.0.0)"
+    },
+    "execution": {
+      "type": "object",
+      "required": ["mode", "transport"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["IN_PROCESS_JVM", "OUT_OF_PROCESS_BIN", "FFI_NATIVE"]
+        },
+        "transport": {
+          "type": "string",
+          "enum": ["IN_PROCESS", "UDS", "TCP_LOOPBACK", "MQTT"]
+        },
+        "entrypoint": {
+          "type": "string",
+          "description": "Command or script to execute (only for OUT_OF_PROCESS_BIN). Exampe: '/usr/bin/python3 main.py'"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "channel"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["PUBLISHES", "SUBSCRIBES"]
+          },
+          "channel": {
+            "type": "string",
+            "description": "The exact Vatn Discovery Lattice Channel or logical topic name"
+          }
+        }
+      }
+    }
+  }
+}

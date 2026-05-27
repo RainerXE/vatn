@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn</groupId>
+        <artifactId>vatn-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>vatn-bom</artifactId>
+    <packaging>pom</packaging>
+
+    <name>VATN Bill of Materials</name>
+    <description>
+        Import this BOM into any project that consumes VATN to manage all
+        dev.vatn artifact versions from a single place.
+
+        Usage in your pom.xml:
+          &lt;dependencyManagement&gt;
+            &lt;dependencies&gt;
+              &lt;dependency&gt;
+                &lt;groupId&gt;dev.vatn&lt;/groupId&gt;
+                &lt;artifactId&gt;vatn-bom&lt;/artifactId&gt;
+                &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+              &lt;/dependency&gt;
+            &lt;/dependencies&gt;
+          &lt;/dependencyManagement&gt;
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-spec</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-test</artifactId>
+                <version>${project.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-plugin-indexer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-plugin-scraper</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-verify</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-bench</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

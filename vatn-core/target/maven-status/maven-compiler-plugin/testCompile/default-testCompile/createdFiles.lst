@@ -1,0 +1,4 @@
+dev/vatn/core/transport/OipcMessagingTest.class
+dev/vatn/core/security/VSecretServiceTest.class
+dev/vatn/core/bridge/NativeBridgeTest.class
+dev/vatn/core/LocalProcessServiceTest.class

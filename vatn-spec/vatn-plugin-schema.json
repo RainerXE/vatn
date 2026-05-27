@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VATN Plugin Manifest",
+  "description": "Schema for the language-neutral vatn-plugin.json manifest.",
+  "type": "object",
+  "required": ["id", "version", "runtime", "entrypoint"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9.\\-]+$",
+      "description": "Unique identifier for the plugin (e.g., com.example.plugin)."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the plugin."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the plugin."
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["EMBEDDED", "PROCESS", "FFI", "WASM", "REMOTE"],
+      "description": "The execution environment required for the plugin."
+    },
+    "entrypoint": {
+      "type": "string",
+      "description": "The execution hook (class name for Java, binary path for Process)."
+    },
+    "required_vatn_version": {
+      "type": "string",
+      "description": "Minimum compatible VATN API version."
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Map of capabilities provided or consumed (channels, services)."
+    },
+    "security_policy": {
+      "type": "object",
+      "properties": {
+        "requested_trust": {
+            "type": "string",
+            "enum": ["NONE", "SANDBOXED", "RESTRICTED", "FULL", "VERIFIED_FEDERATED"]
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["mode", "direction"],
+            "properties": {
+              "mode": { "type": "string", "enum": ["MEDIATED", "DIRECT"] },
+              "direction": { "type": "string", "enum": ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"] }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
