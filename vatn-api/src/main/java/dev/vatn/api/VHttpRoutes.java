@@ -17,6 +17,11 @@ public interface VHttpRoutes {
 
     VHttpRoutes delete(String path, VHttpHandler handler);
 
+    VHttpRoutes patch(String path, VHttpHandler handler);
+
+    /** Handles HTTP OPTIONS requests — CORS preflight, capability discovery. */
+    VHttpRoutes options(String path, VHttpHandler handler);
+
     /** Registers a Server-Sent Events endpoint at the given path (GET). */
     VHttpRoutes sse(String path, VSseHandler handler);
 

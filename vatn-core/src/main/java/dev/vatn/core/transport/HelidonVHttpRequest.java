@@ -62,6 +62,11 @@ public class HelidonVHttpRequest implements VHttpRequest {
     }
 
     @Override
+    public byte[] getBodyBytes() {
+        return req.content().as(byte[].class);
+    }
+
+    @Override
     public String getSourceId() {
         return req.remotePeer().address().toString();
     }
