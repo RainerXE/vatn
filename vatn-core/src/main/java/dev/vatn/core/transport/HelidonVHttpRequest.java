@@ -3,10 +3,15 @@ package dev.vatn.core.transport;
 import dev.vatn.api.VHttpRequest;
 import io.helidon.webserver.http.ServerRequest;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
 /** Helidon-backed implementation of VHttpRequest. */
 public class HelidonVHttpRequest implements VHttpRequest {
 
     private final ServerRequest req;
+    private final Map<String, Object> attributes = new HashMap<>();
 
     public HelidonVHttpRequest(ServerRequest req) {
         this.req = req;
@@ -30,6 +35,20 @@ public class HelidonVHttpRequest implements VHttpRequest {
     @Override
     public String getPath() {
         return req.path().rawPath();
+    }
+
+    @Override
+    public void setAttribute(String key, Object value) {
+        attributes.put(key, value);
+    }
+
+    @Override
+    public <T> Optional<T> getAttribute(String key, Class<T> type) {
+        Object value = attributes.get(key);
+        if (value == null || !type.isInstance(value)) {
+            return Optional.empty();
+        }
+        return Optional.of(type.cast(value));
     }
 
     @Override

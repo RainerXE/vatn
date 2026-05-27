@@ -1,5 +1,7 @@
 package dev.vatn.api;
 
+import java.util.Optional;
+
 /**
  * Transport-neutral HTTP request. Extends VRequest with HTTP-specific accessors.
  * Implementations are provided by vatn-core (Helidon) or any future runtime adapter.
@@ -23,4 +25,17 @@ public interface VHttpRequest extends VRequest {
 
     /** Returns the request path. */
     String getPath();
+
+    /**
+     * Stores a per-request attribute. Filters use this to pass derived context
+     * (e.g. an {@code AuthContext}) to downstream filters and route handlers.
+     */
+    void setAttribute(String key, Object value);
+
+    /**
+     * Retrieves a per-request attribute previously stored by a filter.
+     * Returns an empty {@link Optional} if the key is absent or the value
+     * cannot be cast to {@code type}.
+     */
+    <T> Optional<T> getAttribute(String key, Class<T> type);
 }
