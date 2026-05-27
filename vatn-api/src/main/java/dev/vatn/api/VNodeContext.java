@@ -84,6 +84,19 @@ public interface VNodeContext {
     void register(String path, VHttpService service);
 
     /**
+     * Registers an HTTP filter that intercepts every request passing through
+     * plugin-registered routes. Filters run in ascending {@link VHttpFilter#order()}.
+     *
+     * <p>Call this from {@link VNodePlugin#onInitialize} to wire in cross-cutting
+     * concerns such as security headers, authentication, rate limiting, or logging.
+     *
+     * @param filter the filter to add; must be thread-safe
+     */
+    default void registerFilter(VHttpFilter filter) {
+        // default no-op; VNodeContextImpl overrides
+    }
+
+    /**
      * Identity of the current node runner.
      */
     String getNodeId();

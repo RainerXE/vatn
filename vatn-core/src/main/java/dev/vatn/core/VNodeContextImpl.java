@@ -21,6 +21,7 @@ public class VNodeContextImpl implements VNodeContext {
     private final VStreamServiceImpl streamService;
     private final Map<Class<?>, Object> services = new ConcurrentHashMap<>();
     private final List<HttpRegistration> httpRegistrations = new ArrayList<>();
+    private final List<dev.vatn.api.VHttpFilter> httpFilters = new ArrayList<>();
 
     /** Internal record — consumed by VNodeRunner when building the HTTP server. */
     public record HttpRegistration(String path, VHttpService service) {}
@@ -122,6 +123,20 @@ public class VNodeContextImpl implements VNodeContext {
     /** Returns all registered HTTP services. Called by VNodeRunner after plugin init. */
     public List<HttpRegistration> getHttpRegistrations() {
         return Collections.unmodifiableList(httpRegistrations);
+    }
+
+    @Override
+    public void registerFilter(dev.vatn.api.VHttpFilter filter) {
+        httpFilters.add(filter);
+        logger.debug("[VATN] Registered HTTP filter: {} (order={})",
+                filter.getClass().getSimpleName(), filter.order());
+    }
+
+    /** Returns all registered filters sorted by order(). Called by VNodeRunner. */
+    public List<dev.vatn.api.VHttpFilter> getFilters() {
+        return httpFilters.stream()
+                .sorted(java.util.Comparator.comparingInt(dev.vatn.api.VHttpFilter::order))
+                .toList();
     }
 
     @Override

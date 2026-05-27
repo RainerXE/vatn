@@ -248,9 +248,10 @@ public class VNodeRunner {
         }
 
         // 1.5 Collect HTTP services registered by plugins via context.register()
+        java.util.List<dev.vatn.api.VHttpFilter> httpFilters = context.getFilters();
         for (var reg : context.getHttpRegistrations()) {
             customServices.add(new ServiceRegistration(reg.path(),
-                new dev.vatn.core.transport.HelidonVHttpServiceAdapter(reg.service())));
+                new dev.vatn.core.transport.HelidonVHttpServiceAdapter(reg.service(), httpFilters)));
         }
 
         // 2. Start Helidon WebServer
