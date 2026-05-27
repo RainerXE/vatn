@@ -351,6 +351,15 @@ DAG engine latency (JMH, warm JVM):
 
 ---
 
+## Ecosystem
+
+| Repository | Purpose |
+|------------|---------|
+| [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN — with step-by-step migration tutorials |
+| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins: JWT auth, metrics, OpenAI client, PostgreSQL, and more |
+
+---
+
 ## License
 
 VATN is released under the **MIT License**.
