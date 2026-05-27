@@ -1,0 +1,422 @@
+package dev.vatn.core.transport;
+
+import dev.vatn.api.VMessaging;
+import dev.vatn.api.VTransport;
+import dev.vatn.core.VJsonImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.net.InetSocketAddress;
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
+
+/**
+ * OIPC v2.12 Messaging Transport.
+ * Wire format: V3 binary only (18-byte header). UDS preferred, TCP loopback fallback.
+ */
+public class OipcMessagingTransport implements VMessaging, AutoCloseable {
+
+    private static final Logger log = LoggerFactory.getLogger(OipcMessagingTransport.class);
+
+    private final Map<String, List<Consumer<byte[]>>> subscribers = new ConcurrentHashMap<>();
+    private final List<ClientConnection> activeClients = new CopyOnWriteArrayList<>();
+
+    private ServerSocketChannel serverSocketChannel;
+    private boolean isUds = false;
+    private String connectionPath;
+    private int connectionPort;
+
+    private final VJsonImpl json = new VJsonImpl();
+
+    // Protocol Constants — V3 "Relentless" 18-byte header
+    private static final int MASK_BINARY   = 0x02;
+    private static final int MASK_CHUNKED  = 0x08;
+    private static final int MASK_LAST     = 0x10;
+    private static final int MASK_CONTROL  = 0x20;
+    // V3 header: magic(4) + version(1) + flags(1) + payload_length(4) + message_id(4) + sequence_idx(4) = 18
+    static final int V3_HEADER_SIZE = 18;
+    // Remaining header bytes after the version byte (flags + len + msgId + seqIdx = 1+4+4+4 = 13)
+    private static final int V3_HEADER_AFTER_VERSION = 13;
+
+    private static final int CHUNK_SIZE       = Integer.getInteger("vatn.ipc.chunk_size",       1024 * 1024);
+    private static final int MAX_MESSAGE_SIZE = Integer.getInteger("vatn.ipc.max_message_size", 256 * 1024 * 1024);
+
+    private final Map<String, MessageReassembler> reassemblers = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService scheduler =
+        java.util.concurrent.Executors.newScheduledThreadPool(1,
+            r -> { Thread t = new Thread(r, "oipc-ttl-cleaner"); t.setDaemon(true); return t; });
+
+    public OipcMessagingTransport() {
+        startServer();
+        scheduleTtlCleanup();
+    }
+
+    private void scheduleTtlCleanup() {
+        long ttlMs = Long.getLong("vatn.ipc.reassembly_ttl_ms", 30000);
+        scheduler.scheduleAtFixedRate(() -> {
+            long now = System.currentTimeMillis();
+            reassemblers.entrySet().removeIf(e -> now - e.getValue().lastUpdate > ttlMs);
+        }, ttlMs, ttlMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    private void startServer() {
+        if (Boolean.getBoolean("vatn.ipc.force_tcp")) {
+            log.info("Forcing TCP mode via system property 'vatn.ipc.force_tcp'");
+            bindTcp();
+        } else {
+            try {
+                Path udsDir = Paths.get(System.getProperty("java.io.tmpdir"), "vatn");
+                Files.createDirectories(udsDir);
+                String udsPath = udsDir.resolve("vatn-" + UUID.randomUUID() + ".sock").toString();
+
+                serverSocketChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+                serverSocketChannel.bind(UnixDomainSocketAddress.of(udsPath));
+                isUds = true;
+                connectionPath = udsPath;
+
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    try { Files.deleteIfExists(Paths.get(udsPath)); }
+                    catch (IOException e) { log.warn("Failed to delete UDS socket file: {}", udsPath, e); }
+                }));
+
+                log.info("Initialized OipcMessagingTransport on UDS: {}", connectionPath);
+
+            } catch (UnsupportedOperationException | IOException e) {
+                log.warn("UDS binding failed, falling back to TCP Loopback: {}", e.getMessage());
+                bindTcp();
+            }
+        }
+
+        if (serverSocketChannel != null && serverSocketChannel.isOpen()) {
+            Thread.ofVirtual().name("oipc-accept-loop").start(this::acceptLoop);
+        }
+    }
+
+    private void bindTcp() {
+        try {
+            serverSocketChannel = ServerSocketChannel.open();
+            serverSocketChannel.bind(new InetSocketAddress("127.0.0.1", 0));
+            InetSocketAddress bound = (InetSocketAddress) serverSocketChannel.getLocalAddress();
+            connectionPort = bound.getPort();
+            connectionPath = "127.0.0.1";
+            isUds = false;
+            log.info("Initialized OipcMessagingTransport on TCP Loopback: 127.0.0.1:{}", connectionPort);
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to bind OIPC Transport to TCP", ex);
+        }
+    }
+
+    private void acceptLoop() {
+        while (!Thread.currentThread().isInterrupted() && serverSocketChannel.isOpen()) {
+            try {
+                SocketChannel clientChannel = serverSocketChannel.accept();
+                String remoteAddr = clientChannel.getRemoteAddress().toString();
+
+                if (!isTrusted(clientChannel)) {
+                    log.warn("Blocked untrusted OIPC connection from {}", remoteAddr);
+                    clientChannel.close();
+                    continue;
+                }
+
+                ClientConnection client = new ClientConnection(clientChannel);
+                activeClients.add(client);
+                Thread.ofVirtual().start(() -> handleClient(client));
+            } catch (IOException e) {
+                if (serverSocketChannel.isOpen()) {
+                    log.error("Error accepting OIPC client connection", e);
+                }
+            }
+        }
+    }
+
+    private void handleClient(ClientConnection client) {
+        try {
+            InputStream in = Channels.newInputStream(client.channel);
+            int firstByte = in.read();
+
+            if (firstByte == -1) { client.close(); return; }
+
+            if (firstByte == 0x4F) { // 'O' — OIPC V3 binary
+                handleBinaryClient(client, in);
+            } else {
+                log.warn("Unknown OIPC magic byte 0x{} — only V3 binary (0x4F) is supported",
+                    Integer.toHexString(firstByte));
+                client.close();
+            }
+        } catch (IOException | RuntimeException e) {
+            log.error("Client connection error", e);
+            client.close();
+        } finally {
+            activeClients.remove(client);
+            reassemblers.keySet().removeIf(k -> k.startsWith(client.id + ":"));
+        }
+    }
+
+    private boolean isTrusted(SocketChannel channel) throws IOException {
+        java.net.SocketAddress addr = channel.getRemoteAddress();
+        if (!(addr instanceof java.net.InetSocketAddress)) return true; // UDS is inherently local
+        String host = ((java.net.InetSocketAddress) addr).getAddress().getHostAddress();
+        String trusted = System.getProperty("vatn.ipc.trusted_hosts", "127.0.0.1,0:0:0:0:0:0:0:1");
+        for (String t : trusted.split(",")) {
+            if (host.equals(t.trim())) return true;
+        }
+        return false;
+    }
+
+    private void handleBinaryClient(ClientConnection client, InputStream in) throws IOException {
+        // First byte 'O' was consumed by handleClient — read 'IPC' to complete the magic.
+        byte[] frameMagic = new byte[4];
+        if (readFully(in, frameMagic, 0, 3) < 3
+                || frameMagic[0] != 'I' || frameMagic[1] != 'P' || frameMagic[2] != 'C') {
+            log.warn("Lost framing sync at start — expected 'IPC'");
+            return;
+        }
+
+        loop: while (true) {
+            int version = in.read();
+            if (version == -1) break;
+
+            if (version != 3) {
+                log.warn("Unsupported OIPC wire version {} — only V3 is accepted", version);
+                break loop;
+            }
+
+            // V3 header remainder: flags(1) + payload_length(4) + message_id(4) + sequence_idx(4) = 13 bytes
+            byte[] hdr = new byte[V3_HEADER_AFTER_VERSION];
+            if (readFully(in, hdr, V3_HEADER_AFTER_VERSION) < V3_HEADER_AFTER_VERSION) break loop;
+            ByteBuffer bb = ByteBuffer.wrap(hdr).order(ByteOrder.BIG_ENDIAN);
+            byte flags        = bb.get();
+            int  payloadLength = bb.getInt();
+            long msgId        = bb.getInt() & 0xFFFFFFFFL;
+            int  seqIdx       = bb.getInt();
+
+            if (payloadLength < 0 || payloadLength > MAX_MESSAGE_SIZE) {
+                log.warn("OIPC payload length out of bounds: {}", payloadLength);
+                break loop;
+            }
+
+            byte[] payload = new byte[payloadLength];
+            if (readFully(in, payload, payloadLength) < payloadLength) break loop;
+
+            if (!client.handshakeComplete) {
+                if ((flags & MASK_CONTROL) != 0 && payload.length >= 3 && payload[0] == 0x05) {
+                    handleHello(client, msgId, payload);
+                } else {
+                    log.warn("Connection dropped: data sent before HELLO handshake");
+                    break loop;
+                }
+            } else if ((flags & MASK_CONTROL) != 0 && (flags & MASK_CHUNKED) != 0) {
+                log.warn("Connection dropped: illegal flag combination CONTROL|CHUNKED");
+                break loop;
+            } else if ((flags & MASK_CONTROL) != 0) {
+                handleControlFrame(payload);
+            } else if ((flags & MASK_CHUNKED) != 0) {
+                String key = client.channel.hashCode() + ":" + msgId;
+                MessageReassembler ra = reassemblers.computeIfAbsent(key, k -> new MessageReassembler());
+                if (ra.addChunk(seqIdx, payload)) {
+                    if ((flags & MASK_LAST) != 0) {
+                        dispatchToSubscribers("binary.ingress", ra.assemble());
+                        reassemblers.remove(key);
+                        sendFeedback(client, (byte) 0x01, msgId, 0); // ACK
+                    }
+                } else {
+                    log.warn("Sequence gap for MessageID {}. Sending NACK for index {}.", msgId, seqIdx);
+                    sendFeedback(client, (byte) 0x02, msgId, seqIdx); // NACK
+                }
+            } else {
+                dispatchToSubscribers("binary.ingress", payload);
+            }
+
+            // Read next 'OIPC' magic prefix before looping.
+            int prefixRead = readFully(in, frameMagic, 4);
+            if (prefixRead < 4) break loop;
+            if (frameMagic[0] != 'O' || frameMagic[1] != 'I' || frameMagic[2] != 'P' || frameMagic[3] != 'C') {
+                log.warn("Lost framing sync — expected 'OIPC' prefix");
+                break loop;
+            }
+        }
+    }
+
+    private static int readFully(InputStream in, byte[] buf, int offset, int n) throws IOException {
+        int total = 0;
+        while (total < n) {
+            int r = in.read(buf, offset + total, n - total);
+            if (r == -1) return total;
+            total += r;
+        }
+        return total;
+    }
+
+    private static int readFully(InputStream in, byte[] buf, int n) throws IOException {
+        return readFully(in, buf, 0, n);
+    }
+
+    private void dispatchToSubscribers(String channel, byte[] payload) {
+        List<Consumer<byte[]>> consumers = subscribers.get(channel);
+        if (consumers != null) {
+            consumers.forEach(c -> Thread.ofVirtual().start(() -> {
+                try { c.accept(payload); }
+                catch (Exception e) { log.error("Subscriber exception on channel {}", channel, e); }
+            }));
+        }
+    }
+
+    @Override
+    public void publish(String channel, byte[] payload) {
+        dispatchToSubscribers(channel, payload);
+
+        for (ClientConnection conn : activeClients) {
+            synchronized (conn.channel) {
+                try {
+                    if (payload.length <= CHUNK_SIZE) {
+                        // Single V3 frame
+                        ByteBuffer buf = ByteBuffer.allocate(V3_HEADER_SIZE + payload.length)
+                            .order(ByteOrder.BIG_ENDIAN);
+                        buf.put("OIPC".getBytes())
+                           .put((byte) 3).put((byte) MASK_BINARY)
+                           .putInt(payload.length).putInt(0).putInt(0)
+                           .put(payload);
+                        conn.channel.write(buf.rewind());
+                    } else {
+                        // Chunked V3 frames
+                        long msgId = ThreadLocalRandom.current().nextInt() & 0xFFFFFFFFL;
+                        int chunks = (int) Math.ceil((double) payload.length / CHUNK_SIZE);
+                        for (int i = 0; i < chunks; i++) {
+                            int offset = i * CHUNK_SIZE;
+                            int len = Math.min(CHUNK_SIZE, payload.length - offset);
+                            byte flags = (byte) (MASK_BINARY | MASK_CHUNKED
+                                | (i == chunks - 1 ? MASK_LAST : 0));
+                            ByteBuffer buf = ByteBuffer.allocate(V3_HEADER_SIZE + len)
+                                .order(ByteOrder.BIG_ENDIAN);
+                            buf.put("OIPC".getBytes())
+                               .put((byte) 3).put(flags)
+                               .putInt(len).putInt((int) msgId).putInt(i)
+                               .put(payload, offset, len);
+                            conn.channel.write(buf.rewind());
+                        }
+                    }
+                } catch (IOException e) {
+                    conn.close();
+                    activeClients.remove(conn);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void subscribe(String channel, Consumer<byte[]> callback) {
+        subscribers.computeIfAbsent(channel, k -> new CopyOnWriteArrayList<>()).add(callback);
+    }
+
+    @Override
+    public void unsubscribe(String channel, Consumer<byte[]> callback) {
+        List<Consumer<byte[]>> list = subscribers.get(channel);
+        if (list != null) list.remove(callback);
+    }
+
+    @Override
+    public VTransport getTransport() { return isUds ? VTransport.UDS : VTransport.TCP; }
+
+    @Override
+    public void sendDirect(String targetNodeId, byte[] payload) {
+        publish("direct." + targetNodeId, payload);
+    }
+
+    void sendFeedback(ClientConnection target, byte type, long msgId, int seqIdx) {
+        synchronized (target.channel) {
+            try {
+                // Control payload: [Type:1][ControlID:4][Reserved:7] = 12 bytes
+                ByteBuffer buf = ByteBuffer.allocate(V3_HEADER_SIZE + 12).order(ByteOrder.BIG_ENDIAN);
+                buf.put("OIPC".getBytes())
+                   .put((byte) 3).put((byte) (MASK_BINARY | MASK_CONTROL))
+                   .putInt(12).putInt((int) msgId).putInt(0);
+                buf.put(type).putInt(seqIdx).put(new byte[7]);
+                target.channel.write(buf.rewind());
+            } catch (IOException e) {
+                log.warn("Failed to send feedback to client: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void handleControlFrame(byte[] payload) {
+        // type byte reserved for future ACK/NACK handling
+    }
+
+    private void handleHello(ClientConnection client, long msgId, byte[] payload) {
+        int major  = payload[1] & 0xFF;
+        int minor  = payload[2] & 0xFF;
+        String nodeId = new String(payload, 3, payload.length - 3, StandardCharsets.UTF_8);
+
+        if (major != 2) {
+            log.warn("OIPC Handshake failed: version mismatch (expected V2.x, got V{}.{}) from {}",
+                major, minor, nodeId);
+            client.close();
+            return;
+        }
+
+        client.peerNodeId = nodeId;
+        client.handshakeComplete = true;
+        log.info("OIPC Handshake OK: {} (V2.{})", nodeId, minor);
+        sendFeedback(client, (byte) 0x01, msgId, 0); // ACK
+    }
+
+    public boolean isUds() { return isUds; }
+    public String getConnectionPath() { return connectionPath; }
+    public int getConnectionPort() { return connectionPort; }
+
+    @Override
+    public void close() {
+        scheduler.shutdownNow();
+        try {
+            if (serverSocketChannel != null) serverSocketChannel.close();
+            for (ClientConnection client : activeClients) client.close();
+        } catch (IOException | RuntimeException e) {
+            log.warn("Error closing OIPC Transport", e);
+        }
+    }
+
+    private static class MessageReassembler {
+        private final java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        private int lastSeqIdx = -1;
+        long lastUpdate = System.currentTimeMillis();
+
+        synchronized boolean addChunk(int seqIdx, byte[] data) {
+            lastUpdate = System.currentTimeMillis();
+            if (seqIdx != lastSeqIdx + 1) return false;
+            if (buffer.size() + data.length > MAX_MESSAGE_SIZE) return false;
+            try { buffer.write(data); lastSeqIdx = seqIdx; return true; }
+            catch (IOException e) { return false; }
+        }
+
+        synchronized byte[] assemble() { return buffer.toByteArray(); }
+    }
+
+    static class ClientConnection {
+        final String id = UUID.randomUUID().toString();
+        final SocketChannel channel;
+        volatile boolean handshakeComplete = false;
+        @SuppressWarnings("unused")
+        String peerNodeId;
+
+        ClientConnection(SocketChannel channel) { this.channel = channel; }
+        void close() { try { channel.close(); } catch (IOException e) { log.debug("Error closing client channel {}", id, e); } }
+    }
+}

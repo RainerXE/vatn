@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>dev.vatn</groupId>
+    <artifactId>vatn-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    
+    <name>VATN (Vatn App Transport Network) Parent</name>
+    <description>Standalone parent for the VATN project - A Java alternative to Deno/Node.js</description>
+
+    <modules>
+        <module>vatn-api</module>
+        <module>vatn-bom</module>
+        <module>vatn-spec</module>
+        <module>vatn-core</module>
+        <module>vatn-verify</module>
+        <module>vatn-plugin-scraper</module>
+        <module>vatn-plugin-indexer</module>
+        <module>vatn-cli</module>
+        <module>vatn-test</module>
+        <module>vatn-bench</module>
+    </modules>
+    
+    <properties>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <helidon.version>4.4.1</helidon.version>
+        <jackson.version>2.16.1</jackson.version>
+        <pf4j.version>3.9.0</pf4j.version>
+        <junit.version>5.10.0</junit.version>
+        <picocli.version>4.7.5</picocli.version>
+    </properties>
+    
+    <dependencyManagement>
+        <dependencies>
+            <!-- Inter-module dependencies with the new groupId -->
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-spec</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-test</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-plugin-scraper</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-plugin-indexer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- External Stack -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>${picocli.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.10.1</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <metadataRepository>
+                                <!-- Auto-fetch GraalVM community metadata for jackson-databind,
+                                     sqlite-jdbc, postgresql, slf4j, and other well-known libs. -->
+                                <enabled>true</enabled>
+                            </metadataRepository>
+                            <agent>
+                                <enabled>true</enabled>
+                            </agent>
+                            <buildArgs>
+                                <buildArg>--no-fallback</buildArg>
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

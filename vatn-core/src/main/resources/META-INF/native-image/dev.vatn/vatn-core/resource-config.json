@@ -1,0 +1,12 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "cpp/vatn\\.h" },
+      { "pattern": "META-INF/services/.*" },
+      { "pattern": "META-INF/extensions\\.idx" },
+      { "pattern": "org/sqlite/native/.*" },
+      { "pattern": "org/sqlite/.*\\.properties" }
+    ]
+  },
+  "bundles": []
+}
