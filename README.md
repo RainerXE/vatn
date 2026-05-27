@@ -57,7 +57,7 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
                 │  loaded into
  ┌──────────────▼───────────────────────────────────────────────────────┐
  │             Your plugins  /  vatn-plugin-*                           │
- │   ScraperPlugin · IndexerPlugin · your own VNodePlugin impls         │
+ │   your own VNodePlugin impls  ·  vatn-plugins ecosystem              │
  └──────────────────────────────────────────────────────────────────────┘
 
  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
@@ -130,24 +130,6 @@ JMH micro-benchmarks and external load-test scripts:
 | `bench/http/run.sh` | External wrk load against a live VATN node |
 | `bench/workflow/run.sh` | DAG throughput vs Windmill / Prefect / Airflow |
 | `bench/report/generate.sh` | Aggregate all results into a dated Markdown report |
-
-### `vatn-plugin-indexer` — Reference Plugin: Stream Indexer
-
-A `VNodePlugin` that receives a JSON stream over OIPC, sorts the entries alphabetically by `title`, and relays the sorted stream to the next node. Demonstrates:
-
-- `VStream.openInput` / `createRemoteOutput` for cross-node piping
-- `VJson.parseStream` / `stringifyStream` for NDJSON processing
-- Virtual-thread–based async pipeline with bounded retry
-
-### `vatn-plugin-scraper` — Reference Plugin: Web Scraper
-
-A `VNodePlugin` that takes a list of URLs, scrapes each with Jsoup, and pipes the extracted content as a NDJSON stream to a target node. Demonstrates:
-
-- Outbound HTTP with `java.net.http.HttpClient`
-- HTML parsing with Jsoup
-- `VStream.createRemoteOutput` for streaming results to a downstream indexer
-
-The scraper → indexer pair is the canonical two-node federated pipeline demo.
 
 ### `examples/` — Working Examples
 
@@ -356,7 +338,7 @@ DAG engine latency (JMH, warm JVM):
 | Repository | Purpose |
 |------------|---------|
 | [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN — with step-by-step migration tutorials |
-| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins: JWT auth, metrics, OpenAI client, PostgreSQL, and more |
+| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins: JWT auth (`vatn-plugin-auth`), security headers (`vatn-plugin-security`), stream indexer (`vatn-plugin-indexer`), web scraper (`vatn-plugin-scraper`) |
 
 ---
 
@@ -405,7 +387,6 @@ licensed and compatible with the MIT License.
 | [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) | 3.45.1.0 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Embedded persistence (`vatn-core`) |
 | [PostgreSQL JDBC](https://jdbc.postgresql.org/) | 42.7.2 | [BSD 2-Clause](https://opensource.org/licenses/BSD-2-Clause) | Optional Postgres backend (`vatn-core`) |
 | [Flyway Community](https://flywaydb.org/) | 10.8.1 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Database schema migrations (`vatn-core`) |
-| [jsoup](https://jsoup.org/) | 1.22.1 | [MIT](https://opensource.org/licenses/MIT) | HTML scraping (`vatn-plugin-scraper`) |
 | [GraalVM SDK](https://www.graalvm.org/) | 24.1.1 | [UPL 1.0](https://opensource.org/licenses/UPL) | Native image C ABI (`vatn-core`, compile-time) |
 
 #### Test and benchmark dependencies
