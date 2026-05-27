@@ -28,6 +28,14 @@ public interface VNodePlugin {
     default void onInitialize(VNodeContext context) {}
 
     /**
+     * Called once all plugins have been initialized and the HTTP server is
+     * fully bound and accepting connections. Use this to perform work that
+     * depends on other plugins being ready (e.g. looking up a service
+     * registered by a sibling plugin).
+     */
+    default void onReady() {}
+
+    /**
      * Called when the node is stopping.
      */
     default void onShutdown() {}

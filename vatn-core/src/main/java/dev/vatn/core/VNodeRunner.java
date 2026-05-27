@@ -382,6 +382,13 @@ public class VNodeRunner {
         
         logger.info("VATN Node Ready on port {}. Lattice Federation Active.", server.port());
         this.started = true;
+
+        // Notify plugins that the server is fully bound and all siblings are initialized
+        hostedPlugins.forEach(plugin ->
+                Thread.ofVirtual().start(() -> {
+                    try { plugin.onReady(); }
+                    catch (Exception e) { logger.warn("onReady() failed for {}: {}", plugin.getId(), e.getMessage()); }
+                }));
     }
 
     public int getBoundPort() {

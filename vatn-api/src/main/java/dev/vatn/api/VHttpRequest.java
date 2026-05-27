@@ -26,6 +26,9 @@ public interface VHttpRequest extends VRequest {
     /** Returns the request path. */
     String getPath();
 
+    /** Returns the raw request body as bytes (e.g. for binary uploads or signature verification). */
+    byte[] getBodyBytes();
+
     /**
      * Stores a per-request attribute. Filters use this to pass derived context
      * (e.g. an {@code AuthContext}) to downstream filters and route handlers.

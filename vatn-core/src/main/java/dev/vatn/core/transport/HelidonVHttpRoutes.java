@@ -57,6 +57,20 @@ public class HelidonVHttpRoutes implements VHttpRoutes {
     }
 
     @Override
+    public VHttpRoutes patch(String path, VHttpHandler handler) {
+        rules.patch(path, (req, res) -> runChain(
+                new HelidonVHttpRequest(req), new HelidonVHttpResponse(res), handler));
+        return this;
+    }
+
+    @Override
+    public VHttpRoutes options(String path, VHttpHandler handler) {
+        rules.options(path, (req, res) -> runChain(
+                new HelidonVHttpRequest(req), new HelidonVHttpResponse(res), handler));
+        return this;
+    }
+
+    @Override
     public VHttpRoutes sse(String path, VSseHandler handler) {
         rules.get(path, (req, res) -> {
             try (SseSink sink = res.sink(SseSink.TYPE)) {
