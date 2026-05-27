@@ -1,8 +1,8 @@
 package dev.vatn.verify;
 
 import dev.vatn.core.VNodeRunner;
-import dev.vatn.plugin.scraper.ScraperPlugin;
-import dev.vatn.plugin.indexer.IndexerPlugin;
+import dev.vatn.plugins.scraper.ScraperPlugin;
+import dev.vatn.plugins.indexer.IndexerPlugin;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
 import org.junit.jupiter.api.AfterAll;
@@ -53,8 +53,8 @@ public class FederatedPipelineTest {
         VNodeRunner nodeB = VNodeRunner.create(0);
         VNodeRunner nodeC = VNodeRunner.create(0);
 
-        ScraperPlugin scraper = new ScraperPlugin(null);
-        IndexerPlugin indexer = new IndexerPlugin(null);
+        ScraperPlugin scraper = new ScraperPlugin();
+        IndexerPlugin indexer = new IndexerPlugin();
 
         nodeA.addPlugin(scraper);
         nodeB.addPlugin(indexer);

@@ -62,16 +62,6 @@
             </dependency>
             <dependency>
                 <groupId>dev.vatn</groupId>
-                <artifactId>vatn-plugin-indexer</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vatn</groupId>
-                <artifactId>vatn-plugin-scraper</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vatn</groupId>
                 <artifactId>vatn-verify</artifactId>
                 <version>${project.version}</version>
             </dependency>

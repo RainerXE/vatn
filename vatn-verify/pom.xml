@@ -23,13 +23,15 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>dev.vatn</groupId>
+            <groupId>dev.vatn.plugins</groupId>
             <artifactId>vatn-plugin-scraper</artifactId>
+            <version>1.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>dev.vatn</groupId>
+            <groupId>dev.vatn.plugins</groupId>
             <artifactId>vatn-plugin-indexer</artifactId>
+            <version>1.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
         <dependency>

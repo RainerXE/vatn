@@ -18,8 +18,6 @@
         <module>vatn-spec</module>
         <module>vatn-core</module>
         <module>vatn-verify</module>
-        <module>vatn-plugin-scraper</module>
-        <module>vatn-plugin-indexer</module>
         <module>vatn-cli</module>
         <module>vatn-test</module>
         <module>vatn-bench</module>
@@ -58,16 +56,6 @@
             <dependency>
                 <groupId>dev.vatn</groupId>
                 <artifactId>vatn-test</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vatn</groupId>
-                <artifactId>vatn-plugin-scraper</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vatn</groupId>
-                <artifactId>vatn-plugin-indexer</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
