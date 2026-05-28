@@ -89,7 +89,7 @@ VATN_PLUGINS=cors,auth,swagger,admin,postgres \
 
 | Plugin | Purpose |
 |--------|---------|
-| `admin` | Admin dashboard UI — plugins, agents, workflows, JVM metrics _(always included)_ |
+| `admin` | Admin dashboard UI — plugins, agents, workflows, named queues, JVM metrics _(always included)_ |
 | `cors` | CORS filter for browser-accessible APIs |
 | `auth` | JWT + API-key authentication |
 | `swagger` | OpenAPI / Swagger UI at `/api/docs` |
@@ -307,8 +307,12 @@ Key surfaces:
 | `VNodePlugin` | Implement this; `onInitialize(ctx)` wires your services |
 | `VNodeContext` | Entry point to every service: `ctx.getMessaging()`, `ctx.getService(VDagEngine.class)`, … |
 | `VHttpService` / `VHttpRoutes` | Declare REST endpoints and WebSocket handlers |
-| `VMessaging` | In-process pub/sub; same API as cross-node OIPC in v2 |
+| `VHttpFilter` / `VFilterChain` | Per-request middleware chain — auth, CORS, security headers, tracing |
+| `VMessaging` | In-process ephemeral pub/sub; same API as cross-node OIPC in v2 |
 | `VDagEngine` / `VDagRegistry` | Define and trigger DAG workflows |
+| `VQueueService` / `VNamedQueue` | Named work queues — claim/ack, priority, DLQ, delayed jobs, atomic enqueue |
+| `VTopicService` / `VTopic` | Durable pub/sub topics — per-consumer offsets, replay, seek, pause/resume |
+| `VResourceLockService` / `VLock` | Advisory TTL locks — `tryAcquire` / `acquire` returning RAII `VLock` handles |
 | `VGuardService` | Intercept input, output, and tool calls for PII / SSRF filtering |
 | `VSecretService` | Store and retrieve encrypted secrets |
 | `VNodeIdentity` | Sign and verify data with the node's Ed25519 key |
@@ -323,8 +327,11 @@ The Helidon 4 SE–powered implementation of every `vatn-api` interface. You nev
 
 Notable internals:
 
-- **`VNodeRunner`** — one-liner bootstrap; wires HTTP router, plugin lifecycle, DAG engine, OIPC transport, and all platform services
+- **`VNodeRunner`** — one-liner bootstrap; wires HTTP router, plugin lifecycle, DAG engine, messaging services, OIPC transport, and all platform services
 - **`VDagEngineImpl`** — Airflow-style task graph execution on virtual threads; SQLite persistence; crash-safe replay via `VEventLog`
+- **`VQueueServiceImpl`** — named work queues backed by `vatn_named_queue_jobs`; visibility-timeout sweeper on a background virtual thread; supports DLQ forwarding and atomic enqueue on a caller-supplied connection
+- **`VTopicServiceImpl`** — durable pub/sub backed by `vatn_topic_events` + per-consumer `vatn_topic_offsets`; offset auto-saved every 1000 events or 1 second; consumers resume from their saved position on restart
+- **`VResourceLockServiceImpl`** — SQLite-backed TTL advisory locks; `tryAcquire` / `acquire` return `VLock` RAII handles that release on `close()`
 - **`OipcMessagingTransport`** — OIPC v2.12 binary protocol over Unix Domain Sockets (TCP fallback); full HELLO handshake; async virtual-thread accept loop
 - **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics`
 - **`VRegistry`** — PF4J-based plugin loader with Ed25519 JAR signature verification; trust-level assignment (SANDBOXED → RESTRICTED → FULL)
