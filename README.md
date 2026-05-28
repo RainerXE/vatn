@@ -294,6 +294,125 @@ java -jar target/01-hello-world-1.0-SNAPSHOT.jar
 
 ---
 
+## Process Sandbox
+
+VATN provides a layered sandboxing stack that any application plugin can use. The entire stack sits in `vatn-core`; your plugin only sees `vatn-api` interfaces.
+
+### Architecture
+
+```
+Plugin code
+    │  ctx.getService(VSandboxProvider.class).exec("odin check .", 30)
+    ▼
+VSandboxProvider (vatn-api SPI)
+    │  default impl: LocalSandbox (your app, implements the SPI)
+    │  calls VGuardService.evaluateToolCall() first
+    │  reads VatnSecurity.CURRENT_TRUST_LEVEL (ScopedValue)
+    ▼
+VProcessService.execute(cmd, env, dir, trustLevel)   (vatn-api SPI)
+    │  impl: LocalProcessService (vatn-core)
+    │
+    ├─► ShellEnvPolicy.applyTo(pb.environment())     env isolation
+    │       reads [sandbox.shell_env] from .vatn/vatn.toml
+    │       default: inherit=core + exclude secret patterns
+    │
+    └─► OsSandboxWrapper.wrapCommand(cmd, trustLevel) OS sandboxing
+            macOS  → sandbox-exec -p "(deny file-write*)(deny network*)"
+            Linux  → bwrap --ro-bind / / --unshare-all / --share-net
+            FULL   → no wrapper (command runs as-is)
+    ▼
+VSubprocessAuditService.record(entry)                audit
+    registered by VNodeRunner; queryable via getAll() / getForSession()
+```
+
+### Trust Levels
+
+| `VTrustLevel` | macOS sandbox | Linux sandbox | Use case |
+|---|---|---|---|
+| `FULL` | none | none | Trusted internal tools |
+| `RESTRICTED` | deny file-write | ro-bind + share-net | Semi-trusted tools (network allowed) |
+| `SANDBOXED` | deny file-write + deny network | ro-bind + unshare-all | Untrusted or user-supplied commands |
+
+`VatnSecurity.CURRENT_TRUST_LEVEL` is a Java `ScopedValue` — set it before dispatching to a tool and it propagates automatically to `VProcessService`.
+
+### Environment isolation (`ShellEnvPolicy`)
+
+Configure in `.vatn/vatn.toml`:
+
+```toml
+[sandbox.shell_env]
+inherit  = "core"                          # all | core | none
+exclude  = ["AWS_*", "*_KEY", "*_TOKEN", "ANTHROPIC_*", "OPENAI_*"]
+set      = { CI = "true" }                 # always present, overrides existing
+```
+
+| `inherit` | Behaviour |
+|---|---|
+| `core` | Keep only safe vars: `PATH`, `HOME`, `JAVA_HOME`, `LANG`, `TMPDIR`, `CI`, … |
+| `all` | Keep full parent env, then apply `exclude` patterns |
+| `none` | Empty env — only keys from `set` are present |
+
+If `.vatn/vatn.toml` is absent or has no `[sandbox.shell_env]` section, the safe default is used: `inherit = "core"` with standard secret patterns excluded.
+
+### Using `VSandboxProvider` in your plugin
+
+```java
+public class MyPlugin implements VNodePlugin {
+    @Override
+    public void onInitialize(VNodeContext ctx) {
+
+        // Execute a command with the default (FULL) trust level
+        VSandboxProvider sandbox = ctx.getService(VSandboxProvider.class).orElseThrow();
+        String output = sandbox.exec("odin check .", 30);
+
+        // Execute with restricted trust (propagated to LocalProcessService)
+        ScopedValue.where(VatnSecurity.CURRENT_TRUST_LEVEL, VTrustLevel.SANDBOXED)
+            .run(() -> {
+                String result = sandbox.exec("user-supplied-command", 10);
+                // process result
+            });
+    }
+}
+```
+
+### Querying the audit log
+
+Every call that reaches `VSandboxProvider` (and any plugin that writes to `VSubprocessAuditService` directly) is logged in memory:
+
+```java
+VSubprocessAuditService audit = ctx.getService(VSubprocessAuditService.class).orElseThrow();
+
+// All entries
+List<VSubprocessAuditEntry> all = audit.getAll();
+
+// Per-session
+List<VSubprocessAuditEntry> forSession = audit.getForSession(sessionId);
+
+// JSON — for a REST handler
+res.sendJson(audit.toJsonArray());
+```
+
+Each `VSubprocessAuditEntry` carries: `sessionId`, `command`, `exitCode`, `durationMs`, `timestamp`.
+
+The default implementation is in-memory only (resets on node restart). To persist across restarts, register your own database-backed implementation before `VNodeRunner.start()`:
+
+```java
+VNodeRunner runner = VNodeRunner.create(8080);
+runner.registerService(VSubprocessAuditService.class, new MyDbAuditService(dataSource));
+runner.addPlugin(new MyPlugin());
+runner.start();
+```
+
+### Providing a custom `VSandboxProvider`
+
+The default `VSandboxProvider` is whatever your application registers. If you don't register one, `ctx.getService(VSandboxProvider.class)` returns empty. Register your implementation in `onInitialize`:
+
+```java
+ctx.registerService(VSandboxProvider.class, new MyCustomSandbox(ctx));
+```
+
+---
+
 ## Project Modules
 
 ### `vatn-api` — The SPI (Start here)
@@ -318,6 +437,8 @@ Key surfaces:
 | `VNodeIdentity` | Sign and verify data with the node's Ed25519 key |
 | `VDiscovery` / `VNameResolver` | LAN peer discovery (v1) and name resolution |
 | `VTracingService` | Distributed tracing (noop by default; OTLP via `VATN_OTLP_ENDPOINT`) |
+| `VSandboxProvider` | Execute shell commands inside the node's security sandbox — guard-checked, OS-isolated, audit-logged |
+| `VSubprocessAuditService` / `VSubprocessAuditEntry` | Append-only log of every subprocess execution: sessionId, command, exitCode, durationMs, timestamp |
 | `workflow.*` | Full DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom`, `VPool`, `VEventLog` |
 | `security.*` | `VFirewall`, `VFlowPolicy`, `VPolicyInterjector`, `VTrustLevel`, `VSecretService` |
 
@@ -335,6 +456,9 @@ Notable internals:
 - **`OipcMessagingTransport`** — OIPC v2.12 binary protocol over Unix Domain Sockets (TCP fallback); full HELLO handshake; async virtual-thread accept loop
 - **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics`
 - **`VRegistry`** — PF4J-based plugin loader with Ed25519 JAR signature verification; trust-level assignment (SANDBOXED → RESTRICTED → FULL)
+- **`LocalProcessService`** — `VProcessService` impl that applies `ShellEnvPolicy` (env isolation) and `OsSandboxWrapper` (OS-native sandboxing) before every subprocess spawn
+- **`OsSandboxWrapper`** — wraps commands with OS-native sandbox tools based on `VTrustLevel`: `sandbox-exec` on macOS, `bwrap` on Linux
+- **`VSubprocessAuditServiceImpl`** — in-memory audit log; registered automatically by `VNodeRunner`; replace with a DB-backed impl if you need persistence across restarts
 
 ### `vatn-cli` — Developer Toolbelt
 
