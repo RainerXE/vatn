@@ -202,6 +202,7 @@ public class VNodeRunner {
             dbManager.registerSchemaContributor(contributor);
         }
         dbManager.registerSchemaContributor(new dev.vatn.core.workflow.VatnWorkflowSchemaContributor());
+        dbManager.registerSchemaContributor(new dev.vatn.core.messaging.VatnMessagingSchemaContributor());
         context.registerService(dev.vatn.api.VPersistenceService.class, dbManager);
         context.registerService(dev.vatn.api.VClockService.class, new VClockServiceImpl(context, dbManager));
         context.registerService(dev.vatn.api.VFileService.class, new LocalFileService());
@@ -216,6 +217,10 @@ public class VNodeRunner {
             new dev.vatn.core.workflow.VEventLogImpl(dbManager));
         context.registerService(dev.vatn.api.workflow.VJobQueue.class,
             new dev.vatn.core.workflow.VJobQueueImpl(context, dbManager));
+        context.registerService(dev.vatn.api.workflow.VQueueService.class,
+            new dev.vatn.core.messaging.VQueueServiceImpl(dbManager));
+        context.registerService(dev.vatn.api.VTopicService.class,
+            new dev.vatn.core.messaging.VTopicServiceImpl(dbManager));
 
         // 1.2 Workflow Engine (DAG execution stack)
         dev.vatn.core.workflow.VDagRegistryImpl dagRegistry = new dev.vatn.core.workflow.VDagRegistryImpl();
@@ -248,6 +253,8 @@ public class VNodeRunner {
             ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
                 .run(() -> plugin.onInitialize(context));
         }
+        context.registerService(dev.vatn.api.VPluginManager.class,
+                new VPluginManagerImpl(hostedPlugins, context));
 
         // 1.5 Collect HTTP services registered by plugins via context.register()
         java.util.List<dev.vatn.api.VHttpFilter> httpFilters = context.getFilters();

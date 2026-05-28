@@ -16,17 +16,20 @@
 7. [HTTP services and routing](#7-http-services-and-routing)
 8. [WebSocket and Server-Sent Events](#8-websocket-and-server-sent-events)
 9. [Pub/Sub messaging](#9-pubsub-messaging)
-10. [Persisting data](#10-persisting-data)
-11. [Background jobs with the DAG engine](#11-background-jobs-with-the-dag-engine)
-12. [Secrets and configuration](#12-secrets-and-configuration)
-13. [Security: guard policies and trust levels](#13-security-guard-policies-and-trust-levels)
-14. [Node identity and signatures](#14-node-identity-and-signatures)
-15. [Observability: health, tracing, and rate limiting](#15-observability-health-tracing-and-rate-limiting)
-16. [Running the examples](#16-running-the-examples)
-17. [Service SPI reference](#17-service-spi-reference)
-18. [Benchmarks](#18-benchmarks)
-19. [Native image](#19-native-image)
-20. [Project Leyden — JVM AOT cache](#20-project-leyden--jvm-aot-cache)
+10. [Named work queues (VQueueService)](#10-named-work-queues-vqueueservice)
+11. [Durable pub/sub topics (VTopicService)](#11-durable-pubsub-topics-vtopicservice)
+12. [Advisory locks (VResourceLockService)](#12-advisory-locks-vresourcelockservice)
+13. [Persisting data](#13-persisting-data)
+14. [Background jobs with the DAG engine](#14-background-jobs-with-the-dag-engine)
+15. [Secrets and configuration](#15-secrets-and-configuration)
+16. [Security: guard policies and trust levels](#16-security-guard-policies-and-trust-levels)
+17. [Node identity and signatures](#17-node-identity-and-signatures)
+18. [Observability: health, tracing, and rate limiting](#18-observability-health-tracing-and-rate-limiting)
+19. [Running the examples](#19-running-the-examples)
+20. [Service SPI reference](#20-service-spi-reference)
+21. [Benchmarks](#21-benchmarks)
+22. [Native image](#22-native-image)
+23. [Project Leyden — JVM AOT cache](#23-project-leyden--jvm-aot-cache)
 
 ---
 
@@ -674,10 +677,236 @@ Each subscriber callback runs on its own virtual thread, so blocking I/O inside 
 **Best practices:**
 - Use reverse-DNS channel names (`com.example.orders.created`) to avoid collisions across plugins.
 - Keep payloads small (JSON or Protobuf bytes). For large data, publish a stream reference and use `VStream`.
+- For events that must survive a node restart or reach multiple independent consumers at different paces, use `VTopicService` instead — see section 11.
 
 ---
 
-## 10. Persisting data
+## 10. Named work queues (VQueueService)
+
+> **Inspired by [honker](https://github.com/russellromney/honker)** — the insight that if SQLite is your primary store, the message queue should live in the same file. No dual-write problem, no broker process, no network hop between your business INSERT and your job enqueue.
+
+`VQueueService` provides named, durable, at-least-once work queues backed by the node's SQLite database. Unlike `VJobQueue` (which is a single global queue with registered handler callbacks), named queues expose explicit claim/ack semantics — the worker controls when a job is acknowledged and can implement batching, result storage, and custom retry logic.
+
+Every queue lives in `vatn_named_queue_jobs`. Crashed workers leave claimed jobs with an expired visibility timeout — the background sweeper automatically returns them to `PENDING` so another worker can pick them up.
+
+### Quick start
+
+```java
+VQueueService qs = ctx.getService(VQueueService.class).orElseThrow();
+VNamedQueue emails = qs.queue("emails");
+
+// Producer
+String jobId = emails.enqueue("{\"to\":\"alice@example.com\"}");
+
+// Consumer — background virtual thread, auto-ack on success, auto-nack on exception
+emails.consume("worker-1", job -> {
+    sendEmail(job.payload());
+    // returning normally acks the job; throwing nacks it and schedules a retry
+});
+```
+
+### Atomic enqueue with a business write
+
+The killer feature: enqueue a job in the same SQLite transaction as your business INSERT — zero chance of inserting an order without the downstream job, or vice versa:
+
+```java
+VPersistenceService db = ctx.getService(VPersistenceService.class).orElseThrow();
+try (Connection conn = db.getConnection()) {
+    conn.setAutoCommit(false);
+    try (var ps = conn.prepareStatement("INSERT INTO orders(user_id, total) VALUES (?, ?)")) {
+        ps.setInt(1, userId);
+        ps.setLong(2, total);
+        ps.executeUpdate();
+    }
+    emails.enqueue("{\"to\":\"alice@example.com\"}", conn);  // same transaction
+    conn.commit();
+}
+```
+
+### Priority, delayed jobs, and DLQ
+
+```java
+// Urgent — claimed before normal jobs
+emails.enqueue("{\"to\":\"ceo@example.com\"}", 10);
+
+// Run no sooner than 10 minutes from now
+emails.enqueueAt("{\"to\":\"bob@example.com\"}", Instant.now().plusSeconds(600));
+
+// Custom options: 10-min visibility timeout, 5 attempts, 60-s backoff, DLQ
+VClaimOptions opts = VClaimOptions.defaults()
+    .withVisibility(Duration.ofMinutes(10))
+    .withMaxAttempts(5)
+    .withBackoff(Duration.ofSeconds(60))
+    .withDeadLetterQueue("emails.dlq");
+
+VNamedQueue emailsWithRetry = qs.queue("emails", opts);
+```
+
+### Manual claim / ack (batch workers)
+
+```java
+List<VQueueJob> batch = emails.claimBatch("worker-1", 32);
+batch.parallelStream().forEach(job -> {
+    try {
+        sendEmail(job.payload());
+        emails.ack(job.id(), "worker-1");
+    } catch (Exception e) {
+        emails.nack(job.id(), "worker-1", e.getMessage());
+    }
+});
+```
+
+### Result storage and waiting
+
+```java
+// Consumer stores a result when acking
+emails.ack(jobId, "worker-1", "{\"sentAt\":\"2026-05-28T12:00:00Z\"}");
+
+// Producer waits for the result (safe on a virtual thread)
+Optional<String> result = emails.waitResult(jobId, Duration.ofSeconds(30));
+```
+
+### Job states
+
+| State | Meaning |
+|-------|---------|
+| `PENDING` | Waiting to be claimed |
+| `CLAIMED` | Held by a worker; returns to PENDING if visibility timeout expires |
+| `DONE` | Successfully acked |
+| `FAILED` | Nacked, will retry (attempts < maxAttempts) |
+| `DEAD` | Exhausted retries; inspect via `listDeadLetters()` or moved to DLQ |
+
+---
+
+## 11. Durable pub/sub topics (VTopicService)
+
+> **Also inspired by [honker](https://github.com/russellromney/honker)** — per-consumer offset tracking in SQLite means every subscriber has its own cursor and replays missed events after a restart, without an external broker.
+
+`VTopicService` provides durable, append-only event streams where every published event is stored in `vatn_topic_events` and each named consumer tracks its position in `vatn_topic_offsets`. On restart, a consumer replays all events past its last saved offset before transitioning to live delivery.
+
+Use `VMessaging` (section 9) for in-process ephemeral pub/sub where durability is not needed. Use `VTopicService` when:
+- Events must survive node restarts
+- Multiple independent consumers need to read the same stream at different paces
+- You need replay / seek semantics
+
+### Quick start
+
+```java
+VTopicService ts = ctx.getService(VTopicService.class).orElseThrow();
+VTopic events = ts.topic("user-events");
+
+// Publisher
+events.publish("{\"userId\":42,\"action\":\"login\"}");
+
+// Two independent consumers — each has its own offset cursor
+events.subscribe("audit-log", event ->
+    auditLog.record(event.id(), event.payload()));
+
+events.subscribe("analytics", event ->
+    analytics.ingest(event.payload()));
+```
+
+### Atomic publish with a business write
+
+```java
+Connection conn = db.getConnection();
+conn.setAutoCommit(false);
+// ... business INSERT ...
+events.publish("{\"userId\":42,\"action\":\"registered\"}", conn);  // same transaction
+conn.commit();
+```
+
+### Replay, seek, and offset management
+
+```java
+// Replay the full topic from the beginning for a new consumer
+events.seek("new-consumer", 0);
+
+// Resume from a specific event (e.g. after a manual investigation)
+events.seek("audit-log", 1234);
+
+// Query current state
+long latest   = events.latestOffset();
+long myOffset = events.getOffset("audit-log");
+
+// Read events directly (no background thread)
+List<VTopicEvent> batch = events.read(myOffset, 100);
+```
+
+### Subscription lifecycle
+
+```java
+// Stop cleanly and flush the offset to the DB
+try (VTopicSubscription sub = events.subscribe("audit-log", handler)) {
+    Thread.sleep(60_000);
+}  // offset saved on close
+
+// Pause / resume without losing position
+sub.pause();
+// ... do something else ...
+sub.resume();
+```
+
+### Housekeeping
+
+```java
+// Delete events with id <= 10000 (consumers with saved offset < 10000 will miss them)
+events.prune(10_000);
+```
+
+---
+
+## 12. Advisory locks (VResourceLockService)
+
+`VResourceLockService` provides TTL-protected advisory locks backed by `vatn_resource_locks` in SQLite. A crashed holder's lock expires automatically — no manual cleanup.
+
+### RAII API (preferred)
+
+```java
+VResourceLockService locks = ctx.getService(VResourceLockService.class).orElseThrow();
+
+// Non-blocking — returns empty if already held
+locks.tryAcquire("report-generator", Duration.ofMinutes(5)).ifPresent(lock -> {
+    try (lock) {
+        generateReport();   // lock released when block exits or after TTL on crash
+    }
+});
+
+// Blocking — waits up to 10 s for the lock to become available
+try (VLock lock = locks.acquire("db-migration", Duration.ofMinutes(2), Duration.ofSeconds(10))) {
+    runMigration();
+}
+```
+
+### Renewing a long-running lock
+
+```java
+try (VLock lock = locks.acquire("long-job", Duration.ofMinutes(5), Duration.ofSeconds(10))) {
+    while (moreWork()) {
+        processChunk();
+        if (!lock.renew(Duration.ofMinutes(5))) {
+            throw new IllegalStateException("Lost lock mid-job");
+        }
+    }
+}
+```
+
+VATN also uses `VResourceLockService` internally for DAG scheduler leader election: only the node holding `vatn.scheduler` fires cron DAGs, preventing double-firing in a cluster.
+
+### Low-level API
+
+```java
+// Legacy boolean API — kept for backward compatibility
+boolean ok = locks.tryLock("backup", 60);   // 60-second TTL
+if (ok) {
+    try { doBackup(); }
+    finally { locks.unlock("backup"); }
+}
+```
+
+---
+
+## 13. Persisting data
 
 VATN ships with `VPersistenceService` — a JDBC connection pool backed by SQLite by default, swappable to PostgreSQL.
 
@@ -730,7 +959,7 @@ See [example 02](../examples/02-rest-api/) for a full task manager with CRUD, pa
 
 ---
 
-## 11. Background jobs with the DAG engine
+## 14. Background jobs with the DAG engine
 
 The DAG engine is one of VATN's most distinctive features. Think of it as Airflow — but embedded in your process, backed by SQLite instead of Postgres+Redis, and with sub-millisecond task dispatch.
 
@@ -834,7 +1063,7 @@ See [example 04](../examples/04-dag-etl-pipeline/) for a full ETL pipeline with 
 
 ---
 
-## 12. Secrets and configuration
+## 15. Secrets and configuration
 
 ### Configuration
 
@@ -863,7 +1092,7 @@ Secrets are stored at `~/.vatn/secrets/` with `rw-------` permissions. The maste
 
 ---
 
-## 13. Security: guard policies and trust levels
+## 16. Security: guard policies and trust levels
 
 ### VGuardService
 
@@ -923,7 +1152,7 @@ Policy interjectors let you add dynamic approval logic:
 
 ---
 
-## 14. Node identity and signatures
+## 17. Node identity and signatures
 
 Every VATN node has an Ed25519 identity. Use it to prove origin and verify authenticity:
 
@@ -945,7 +1174,7 @@ The keypair is generated on first boot and stored at `~/.vatn/.identity` — on 
 
 ---
 
-## 15. Observability: health, tracing, and rate limiting
+## 18. Observability: health, tracing, and rate limiting
 
 ### Health and readiness endpoints
 
@@ -989,7 +1218,7 @@ if (limiter != null && !limiter.tryAcquire("api.write")) {
 
 ---
 
-## 16. Running the examples
+## 19. Running the examples
 
 All examples are self-contained Maven modules under `examples/`. Each has its own `README.md` explaining what it demonstrates.
 
@@ -1016,7 +1245,7 @@ java -jar target/01-hello-world-*.jar
 
 ---
 
-## 17. Service SPI reference
+## 20. Service SPI reference
 
 Access any service via `ctx.getService(Type.class).orElseThrow()` — or via the typed accessors on `VNodeContext` (`ctx.getMessaging()`, `ctx.getStream()`, etc.).
 
@@ -1035,11 +1264,13 @@ Access any service via `ctx.getService(Type.class).orElseThrow()` — or via the
 | `VHttpClient` | `ctx.getService(...)` | 1.0 | Outbound HTTP client |
 | `VFileService` | `ctx.getService(...)` | 1.0 | Workspace-scoped file operations |
 | `VTracingService` | `ctx.getService(...)` | 1.0 | Distributed tracing spans |
-| `VResourceLockService` | `ctx.getService(...)` | 1.0 | Advisory locks backed by SQLite |
+| `VResourceLockService` | `ctx.getService(...)` | 1.0 | Advisory locks backed by SQLite; RAII `VLock` handles |
 | `VDagEngine` | `ctx.getService(...)` | 1.0 | Trigger, cancel, query DAG runs |
 | `VDagRegistry` | `ctx.getService(...)` | 1.0 | Register DAGs and operators |
 | `VDagScheduler` | `ctx.getService(...)` | 1.0 | Cron-based scheduling |
 | `VJobQueue` | `ctx.getService(...)` | 1.0 | Background jobs with retry, TTL, idempotency |
+| `VQueueService` | `ctx.getService(...)` | 1.0-alpha.9 | Named work queues — claim/ack, DLQ, atomic enqueue |
+| `VTopicService` | `ctx.getService(...)` | 1.0-alpha.9 | Durable pub/sub topics — per-consumer offsets, replay |
 | `VSecretService` | `ctx.getSecrets()` | 1.0 | AES-256-GCM encrypted secret store |
 | `VNameResolver` | `ctx.getService(...)` | 1.0 | Resolve VATN node names to URIs |
 | `VEventLog` | `ctx.getService(...)` | 1.1 | Append-only DAG event log |
@@ -1059,7 +1290,7 @@ AnalyticsService analytics = ctx.getService(AnalyticsService.class).orElseThrow(
 
 ---
 
-## 18. Benchmarks
+## 21. Benchmarks
 
 ### Build
 
@@ -1121,7 +1352,7 @@ This drives real TCP connections against a live VATN node. Compare the result ag
 
 ---
 
-## 19. Native image
+## 22. Native image
 
 One of VATN's core philosophies is that every module must run as a native image without compromise — the same code, the same API, the same startup sequence. The `vatn` CLI binary produced by `mvn -Pnative package` is a self-contained executable with ~10 ms cold start and no JVM dependency.
 
@@ -1309,7 +1540,7 @@ Cold start comparison:
 
 ---
 
-## 20. Project Leyden — JVM AOT cache
+## 23. Project Leyden — JVM AOT cache
 
 Project Leyden (JEP 483, delivered in Java 25) is the JVM's built-in answer to cold-start latency — without GraalVM native image. It works on a standard JVM: you run the application once in "training" mode to record which classes were loaded and how they were linked, then convert that recording into an AOT cache file. Subsequent runs restore the pre-loaded and pre-linked class state from the cache, skipping most of the class loading and linking overhead.
 
