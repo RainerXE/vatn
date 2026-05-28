@@ -97,6 +97,55 @@ public interface VNodeContext {
     }
 
     /**
+     * Registers an HTTP filter scoped to a path prefix.
+     * The filter only runs for requests whose path starts with {@code pathPrefix}.
+     *
+     * <pre>{@code
+     * // Only authenticate requests under /api
+     * ctx.registerFilter(new AuthFilter(authService), "/api");
+     * }</pre>
+     */
+    default void registerFilter(VHttpFilter filter, String pathPrefix) {
+        registerFilter(new VHttpFilter() {
+            @Override public int order() { return filter.order(); }
+            @Override
+            public void doFilter(VHttpRequest req, VHttpResponse res, VFilterChain chain) throws Exception {
+                if (req.getPath().startsWith(pathPrefix)) {
+                    filter.doFilter(req, res, chain);
+                } else {
+                    chain.proceed(req, res);
+                }
+            }
+        });
+    }
+
+    /**
+     * Registers a transport-neutral WebSocket endpoint at the given path.
+     * Preferred over using Helidon types directly — plugins must not depend on
+     * runtime-specific classes.
+     *
+     * <pre>{@code
+     * ctx.registerWebSocket("/ws/chat", new ChatWsListener());
+     * }</pre>
+     */
+    default void registerWebSocket(String path, VWsListener listener) {
+        // default no-op; VNodeContextImpl overrides
+    }
+
+    /**
+     * Registers a named health check. All registered checks are aggregated into
+     * the {@code GET /health} and {@code GET /vatn/health} endpoints.
+     *
+     * <pre>{@code
+     * ctx.registerHealthCheck("redis", () -> redisService.ping());
+     * ctx.registerHealthCheck("db",    () -> dataSource.getConnection() != null);
+     * }</pre>
+     */
+    default void registerHealthCheck(String name, java.util.function.Supplier<Boolean> checker) {
+        // default no-op; VNodeContextImpl overrides
+    }
+
+    /**
      * Identity of the current node runner.
      */
     String getNodeId();

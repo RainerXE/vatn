@@ -9,12 +9,13 @@ import io.helidon.webserver.websocket.WsRouting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Standardized bootstrap for a VATN (Virtual Application Transpute Network).
@@ -254,9 +255,35 @@ public class VNodeRunner {
                 new dev.vatn.core.transport.HelidonVHttpServiceAdapter(reg.service(), httpFilters)));
         }
 
+        // 1.6 Collect WebSocket registrations from plugins
+        for (var ws : context.getWsRegistrations()) {
+            webSocketRoutings.add(WsRouting.builder()
+                .endpoint(ws.path(), new dev.vatn.core.transport.HelidonVWsListenerAdapter(ws.listener())));
+        }
+
         // 2. Start Helidon WebServer
         HttpRouting.Builder routing = HttpRouting.builder()
-                .get("/health", (req, res) -> res.send("UP"))
+                .get("/health", (req, res) -> {
+                    java.util.Map<String, Supplier<Boolean>> checks = context.getHealthChecks();
+                    if (checks.isEmpty()) { res.send("UP"); return; }
+                    StringBuilder sb = new StringBuilder("{\"status\":");
+                    boolean allUp = true;
+                    java.util.Map<String, String> results = new java.util.LinkedHashMap<>();
+                    for (var entry : checks.entrySet()) {
+                        boolean up;
+                        try { up = Boolean.TRUE.equals(entry.getValue().get()); }
+                        catch (Exception e) { up = false; }
+                        results.put(entry.getKey(), up ? "UP" : "DOWN");
+                        if (!up) allUp = false;
+                    }
+                    sb.append(allUp ? "\"UP\"" : "\"DOWN\"").append(",\"checks\":{");
+                    results.forEach((k, v) -> sb.append("\"").append(k).append("\":\"").append(v).append("\","));
+                    if (!results.isEmpty()) sb.setLength(sb.length() - 1);
+                    sb.append("}}");
+                    res.headers().contentType(io.helidon.http.HttpMediaTypes.JSON_UTF_8);
+                    if (!allUp) res.status(io.helidon.http.Status.SERVICE_UNAVAILABLE_503);
+                    res.send(sb.toString());
+                })
                 .get("/vatn/health", (req, res) -> {
                     res.headers().contentType(io.helidon.http.HttpMediaTypes.JSON_UTF_8);
                     res.send("{\"status\":\"UP\",\"nodeId\":\"" + context.getNodeId()

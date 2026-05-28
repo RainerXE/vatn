@@ -36,6 +36,12 @@ public interface VNodePlugin {
     default void onReady() {}
 
     /**
+     * Called when the node's configuration has been refreshed (e.g. a config file was reloaded
+     * or an environment variable changed). Plugins that cache config values should re-read them here.
+     */
+    default void onConfigReloaded() {}
+
+    /**
      * Called when the node is stopping.
      */
     default void onShutdown() {}

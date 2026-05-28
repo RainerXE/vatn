@@ -30,6 +30,8 @@ public interface VHttpFilter extends VService {
 
     /** Recommended order slot for distributed tracing filters. */
     int TRACING    = 100;
+    /** Recommended order slot for CORS filters. */
+    int CORS       = 150;
     /** Recommended order slot for security-header filters. */
     int SECURITY   = 200;
     /** Recommended order slot for authentication/authorisation filters. */
