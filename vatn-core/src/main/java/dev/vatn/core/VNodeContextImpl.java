@@ -4,10 +4,12 @@ import dev.vatn.api.*;
 import dev.vatn.api.security.VFirewall;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 
 /**
@@ -22,9 +24,11 @@ public class VNodeContextImpl implements VNodeContext {
     private final Map<Class<?>, Object> services = new ConcurrentHashMap<>();
     private final List<HttpRegistration> httpRegistrations = new ArrayList<>();
     private final List<dev.vatn.api.VHttpFilter> httpFilters = new ArrayList<>();
+    private final List<WsRegistration> wsRegistrations = new ArrayList<>();
+    private final Map<String, Supplier<Boolean>> healthChecks = new LinkedHashMap<>();
 
-    /** Internal record — consumed by VNodeRunner when building the HTTP server. */
     public record HttpRegistration(String path, VHttpService service) {}
+    public record WsRegistration(String path, dev.vatn.api.VWsListener listener) {}
 
     public VNodeContextImpl(String nodeId, VFirewall firewall, VConfiguration configuration, VRegistry registry) {
         this.nodeId = nodeId;
@@ -137,6 +141,26 @@ public class VNodeContextImpl implements VNodeContext {
         return httpFilters.stream()
                 .sorted(java.util.Comparator.comparingInt(dev.vatn.api.VHttpFilter::order))
                 .toList();
+    }
+
+    @Override
+    public void registerWebSocket(String path, dev.vatn.api.VWsListener listener) {
+        wsRegistrations.add(new WsRegistration(path, listener));
+        logger.debug("[VATN] Queued WebSocket endpoint: {}", path);
+    }
+
+    public List<WsRegistration> getWsRegistrations() {
+        return Collections.unmodifiableList(wsRegistrations);
+    }
+
+    @Override
+    public void registerHealthCheck(String name, Supplier<Boolean> checker) {
+        healthChecks.put(name, checker);
+        logger.debug("[VATN] Registered health check: {}", name);
+    }
+
+    public Map<String, Supplier<Boolean>> getHealthChecks() {
+        return Collections.unmodifiableMap(healthChecks);
     }
 
     @Override

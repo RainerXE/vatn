@@ -3,7 +3,9 @@ package dev.vatn.core.transport;
 import dev.vatn.api.VHttpRequest;
 import io.helidon.webserver.http.ServerRequest;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -54,6 +56,14 @@ public class HelidonVHttpRequest implements VHttpRequest {
     @Override
     public String getHeader(String name) {
         return req.headers().value(io.helidon.http.HeaderNames.create(name)).orElse("");
+    }
+
+    @Override
+    public Map<String, String> getHeaders() {
+        Map<String, String> map = new LinkedHashMap<>();
+        req.headers().forEach(h ->
+                map.putIfAbsent(h.headerName().lowerCase(), h.get()));
+        return Collections.unmodifiableMap(map);
     }
 
     @Override
