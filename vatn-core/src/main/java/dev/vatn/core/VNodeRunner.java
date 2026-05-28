@@ -32,6 +32,7 @@ public class VNodeRunner {
     private final List<SystemServiceRegistration<?>> customSystemServices = new ArrayList<>();
     private final List<WsRouting.Builder> webSocketRoutings = new ArrayList<>();
     private final List<dev.vatn.api.VSchemaContributor> schemaContributors = new ArrayList<>();
+    private final List<VAgentRuntime> agentRuntimes = new ArrayList<>();
     private final dev.vatn.core.security.VFirewallImpl firewall = new dev.vatn.core.security.VFirewallImpl();
     private final VRegistry registry;
     private dev.vatn.core.VNodeContextImpl context;
@@ -416,6 +417,14 @@ public class VNodeRunner {
                     try { plugin.onReady(); }
                     catch (Exception e) { logger.warn("onReady() failed for {}: {}", plugin.getId(), e.getMessage()); }
                 }));
+
+        // Start agents after all plugins are ready
+        for (var reg : context.getAgentRegistrations()) {
+            VAgentRuntime runtime = new VAgentRuntime(reg.agent(), reg.mode(), context);
+            agentRuntimes.add(runtime);
+            logger.info("Starting agent: {} (strategy={})", reg.agent().getId(), reg.mode().strategy());
+            runtime.start();
+        }
     }
 
     public int getBoundPort() {
@@ -445,6 +454,10 @@ public class VNodeRunner {
                     }
                 });
             }
+        }
+        // Stop agents before plugins so agents can still use plugin services during shutdown
+        for (VAgentRuntime runtime : agentRuntimes) {
+            runtime.stop();
         }
         for (VNodePlugin plugin : hostedPlugins) {
             ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())

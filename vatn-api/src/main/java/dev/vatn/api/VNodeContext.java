@@ -146,6 +146,30 @@ public interface VNodeContext {
     }
 
     /**
+     * Registers an outbound agent with the default {@link VAgentMode#singleton()} strategy.
+     * The agent is started after all plugins are initialized.
+     *
+     * <pre>{@code
+     * ctx.registerAgent(new TelegramAgent(token));
+     * }</pre>
+     */
+    default void registerAgent(VAgent agent) {
+        registerAgent(agent, VAgentMode.singleton());
+    }
+
+    /**
+     * Registers an outbound agent with an explicit deployment strategy.
+     *
+     * <pre>{@code
+     * ctx.registerAgent(new RcsGateway(config),
+     *         VAgentMode.activePassive().withFailoverTimeout(10_000));
+     * }</pre>
+     */
+    default void registerAgent(VAgent agent, VAgentMode mode) {
+        // default no-op; VNodeContextImpl overrides
+    }
+
+    /**
      * Identity of the current node runner.
      */
     String getNodeId();

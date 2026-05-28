@@ -26,9 +26,11 @@ public class VNodeContextImpl implements VNodeContext {
     private final List<dev.vatn.api.VHttpFilter> httpFilters = new ArrayList<>();
     private final List<WsRegistration> wsRegistrations = new ArrayList<>();
     private final Map<String, Supplier<Boolean>> healthChecks = new LinkedHashMap<>();
+    private final List<AgentRegistration> agentRegistrations = new ArrayList<>();
 
     public record HttpRegistration(String path, VHttpService service) {}
     public record WsRegistration(String path, dev.vatn.api.VWsListener listener) {}
+    public record AgentRegistration(dev.vatn.api.VAgent agent, dev.vatn.api.VAgentMode mode) {}
 
     public VNodeContextImpl(String nodeId, VFirewall firewall, VConfiguration configuration, VRegistry registry) {
         this.nodeId = nodeId;
@@ -161,6 +163,16 @@ public class VNodeContextImpl implements VNodeContext {
 
     public Map<String, Supplier<Boolean>> getHealthChecks() {
         return Collections.unmodifiableMap(healthChecks);
+    }
+
+    @Override
+    public void registerAgent(dev.vatn.api.VAgent agent, dev.vatn.api.VAgentMode mode) {
+        agentRegistrations.add(new AgentRegistration(agent, mode));
+        logger.debug("[VATN] Registered agent: {} (strategy={})", agent.getId(), mode.strategy());
+    }
+
+    public List<AgentRegistration> getAgentRegistrations() {
+        return Collections.unmodifiableList(agentRegistrations);
     }
 
     @Override
