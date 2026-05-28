@@ -205,7 +205,7 @@ class VNamedQueueImpl implements VNamedQueue {
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         try (Connection conn = db.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                "SELECT * FROM vatn_named_queue_jobs WHERE id IN (" + placeholders + ")")) {
+                "SELECT * FROM vatn_named_queue_jobs WHERE id IN (" + placeholders + ") ORDER BY priority DESC, created_at ASC")) {
             for (int i = 0; i < ids.size(); i++) ps.setString(i + 1, ids.get(i));
             try (ResultSet rs = ps.executeQuery()) {
                 List<VQueueJob> jobs = new ArrayList<>();
@@ -311,14 +311,17 @@ class VNamedQueueImpl implements VNamedQueue {
     }
 
     private void insertDlqJob(Connection conn, String dlqName, String payload) throws SQLException {
-        String id = UUID.randomUUID().toString();
+        String id  = UUID.randomUUID().toString();
+        String now = Instant.now().toString();
         try (PreparedStatement ps = conn.prepareStatement("""
-            INSERT INTO vatn_named_queue_jobs (id, queue, payload, state, run_at)
-            VALUES (?, ?, ?, 'PENDING', strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+            INSERT INTO vatn_named_queue_jobs (id, queue, payload, state, run_at, created_at)
+            VALUES (?, ?, ?, 'PENDING', ?, ?)
             """)) {
             ps.setString(1, id);
             ps.setString(2, dlqName);
             ps.setString(3, payload);
+            ps.setString(4, now);
+            ps.setString(5, now);
             ps.executeUpdate();
         }
     }
