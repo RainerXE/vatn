@@ -243,11 +243,16 @@ java -jar target/01-hello-world-1.0-SNAPSHOT.jar
 | Concurrency model | Event loop (async/await) | Thread pool or reactive | **Virtual threads — blocking style, zero threads wasted** |
 | Plugin system | NPM packages | Spring Beans / auto-config | **`VNodePlugin` SPI — JAR drop-in, hot-swap, trust-level enforcement** |
 | DAG / workflow engine | Bull, Agenda (third-party) | Spring Batch (heavy) | **Built-in `VDagEngine` — Airflow-inspired, SQLite-backed, crash-safe** |
+| Work queues | Bull/BullMQ + Redis | RabbitMQ / SQS clients | **`VQueueService` — named queues, claim/ack, DLQ, atomic enqueue; no broker** |
+| Durable pub/sub | Kafka / Redis Streams | Spring Cloud Stream | **`VTopicService` — per-consumer offsets, replay, seek; SQLite-backed** |
+| Advisory locks | Redlock (Redis) | `@Lock` + DB row | **`VResourceLockService` — TTL-protected, RAII `VLock`, crash-safe** |
 | Secrets | dotenv / Vault SDK | Spring Vault | **`VSecretService` — AES-256-GCM, filesystem-backed, vault-ready SPI** |
 | Node identity | None | None | **Ed25519 key pair per node, sign/verify data** |
 | Federation | None | None | **UDP LAN discovery (v1); full lattice mesh (v2)** |
 | GraalVM native image | No | Optional | **First-class — `vatn_node_start()` C ABI** |
 | Language interop | N-API (C) | JNI | **OIPC v2.12 — language-agnostic binary protocol over UDS/TCP** |
+
+> **On queues and topics without a broker:** The work-queue and durable-topic design was inspired by [honker](https://github.com/russellromney/honker) — the idea that if SQLite is already your primary store, the message queue and event stream should live in the same file. This eliminates the dual-write problem between business tables and a separate broker, and removes an entire infrastructure component from your stack.
 
 ---
 
