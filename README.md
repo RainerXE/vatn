@@ -15,6 +15,225 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
 
 ---
 
+## Installation
+
+The fastest way to get VATN running — one command installs the CLI, GraalVM (optional), and your chosen plugins.
+
+### Linux / macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RainerXE/vatn/main/install.sh -o install.sh && bash install.sh
+```
+
+### Windows (PowerShell — run as Administrator)
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+irm https://raw.githubusercontent.com/RainerXE/vatn/main/install.ps1 | iex
+```
+
+### What the installer does
+
+1. Detects your current Java installation (Java 21+ required)
+2. Offers to install **GraalVM** via SDKMAN / winget (Oracle GraalVM or CE — your choice)
+3. Asks where to install (default `~/.vatn`)
+4. Presents a plugin selection menu — recommended defaults pre-selected, `all` available
+5. Downloads `vatn-cli.jar` and selected plugin JARs from the latest GitHub Release
+6. Creates a `vatn` launcher on your PATH with an auto-discovered plugin classpath
+7. Writes a default `vatn.conf` configuration file
+8. **Optionally clones the source repos** into a development folder so you can build your own plugins or contribute to the runtime
+
+### Installed layout
+
+```
+~/.vatn/
+├── bin/vatn            ← the vatn command (added to PATH)
+├── lib/vatn-cli.jar    ← runtime fat-JAR
+├── plugins/            ← drop plugin JARs here; all auto-loaded at startup
+├── config/
+│   └── vatn.conf       ← node configuration
+└── logs/
+```
+
+### After installation
+
+```bash
+source ~/.zshrc           # (or ~/.bashrc; open a new terminal on Windows)
+
+vatn --version            # VATN Runtime 1.0.0
+vatn init my-project      # scaffold a new plugin project
+cd my-project
+vatn run                  # starts node on :8080
+```
+
+Open `http://localhost:8080/vatn/admin` for the admin dashboard (set `VATN_ADMIN_TOKEN` first).
+
+### Non-interactive / CI install
+
+Override prompts with environment variables:
+
+```bash
+VATN_INSTALL_DIR=~/.vatn \
+VATN_JAVA=graal \
+VATN_PLUGINS=cors,auth,swagger,admin,postgres \
+  bash <(curl -fsSL https://raw.githubusercontent.com/RainerXE/vatn/main/install.sh)
+```
+
+| Variable | Values | Default |
+|----------|--------|---------|
+| `VATN_INSTALL_DIR` | any path | `~/.vatn` |
+| `VATN_JAVA` | `graal` / `graalce` / `skip` | interactive |
+| `VATN_PLUGINS` | comma list, `recommended`, `all` | interactive |
+
+### Available plugins
+
+| Plugin | Purpose |
+|--------|---------|
+| `admin` | Admin dashboard UI — plugins, agents, workflows, JVM metrics _(always included)_ |
+| `cors` | CORS filter for browser-accessible APIs |
+| `auth` | JWT + API-key authentication |
+| `swagger` | OpenAPI / Swagger UI at `/api/docs` |
+| `security` | CSRF protection, rate limiting, security headers |
+| `bcrypt` | BCrypt password hashing service |
+| `postgres` | PostgreSQL connection pool (HikariCP) |
+| `redis` | Redis client (Jedis) |
+| `mongodb` | MongoDB driver integration |
+| `openai` | OpenAI / LLM client |
+| `metrics` | Prometheus `/metrics` endpoint (Micrometer) |
+| `email` | SMTP email via Jakarta Mail |
+| `slack` | Slack webhook + Events API |
+| `s3` | AWS S3 / compatible object storage |
+| `comm` | Communication hub: Telegram, Signal, RCS with failover |
+| `indexer` | Full-text search indexing |
+| `scraper` | Headless web scraping |
+| `activitypub` | ActivityPub / Fediverse federation |
+
+---
+
+## Quick Start — first plugin in 5 minutes
+
+With VATN installed:
+
+```bash
+vatn init my-project      # scaffold Maven project + HelloPlugin skeleton
+cd my-project
+```
+
+Edit `src/main/java/.../HelloPlugin.java`:
+
+```java
+public class HelloPlugin implements VNodePlugin {
+    public String getId()      { return "com.example.hello"; }
+    public String getName()    { return "Hello VATN"; }
+    public String getVersion() { return "1.0.0"; }
+
+    @Override
+    public void onInitialize(VNodeContext ctx) {
+        ctx.register("/hello", routes -> routes
+            .get("/",       (req, res) -> res.send("Hello from VATN!"))
+            .get("/{name}", (req, res) ->
+                res.sendJson("{\"msg\":\"Hello, " + req.pathParam("name") + "!\"}")));
+    }
+
+    @Override public void onShutdown() {}
+}
+```
+
+```bash
+vatn run                  # compiles and starts on :8080
+
+curl http://localhost:8080/hello/world
+# {"msg":"Hello, world!"}
+```
+
+Full step-by-step walkthrough, Node.js analogies, DAG workflows, security, and deployment: **[docs/dev-guide.md](docs/dev-guide.md)**
+
+---
+
+## Build from Source
+
+If the installer offered to clone the source repos, your repos are already in your development folder.  
+Otherwise, clone them manually:
+
+```bash
+git clone https://github.com/RainerXE/vatn.git
+git clone https://github.com/RainerXE/vatn-plugins.git   # optional — drop-in plugins
+git clone https://github.com/RainerXE/vatn-demo.git      # optional — examples & tutorials
+```
+
+### Prerequisites
+
+- Java 25+ — GraalVM 25 recommended (`sdk install java 25.0.2-graal` via SDKMAN)
+- Maven 3.9+
+
+### Build the runtime
+
+```bash
+cd vatn
+mvn clean install -DskipTests
+# → vatn-api/target/vatn-api-1.0-SNAPSHOT.jar   (SPI — depend on this in your plugins)
+# → vatn-core/target/vatn-core-1.0-SNAPSHOT.jar  (runtime — never depend on this directly)
+# → vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar    (fat JAR — use as the vatn launcher)
+```
+
+### Build plugins
+
+```bash
+cd vatn-plugins
+mvn clean install -DskipTests
+# → vatn-plugin-*/target/vatn-plugin-*.jar
+```
+
+### Deploy your build to the local installation
+
+```bash
+cp vatn/vatn-cli/target/vatn-cli-*.jar ~/.vatn/lib/vatn-cli.jar
+cp vatn-plugins/vatn-plugin-*/target/vatn-plugin-*.jar ~/.vatn/plugins/
+```
+
+### Build modes
+
+All three modes require GraalVM 25 (install once via SDKMAN):
+
+```bash
+sdk install java 25.0.2-graal
+sdk use java 25.0.2-graal
+```
+
+**JVM + Project Leyden AOT cache** (~116 ms cold start)
+
+```bash
+mvn package verify -Pleyden -pl vatn-cli -am -DskipTests
+java -XX:AOTCache=vatn-cli/target/vatn.aot \
+     -jar vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar --help
+```
+
+**GraalVM native image** (~24 ms cold start, no JVM required)
+
+```bash
+mvn clean package -Pnative -pl vatn-cli -am -DskipTests
+./vatn-cli/target/vatn --version   # VATN Runtime 1.0.0
+```
+
+| Mode | Cold start | JVM required | Distribution |
+|------|-----------|--------------|--------------|
+| JVM plain | ~144 ms | Yes (Java 25) | JAR (22 MB) |
+| JVM + Leyden AOT | ~116 ms | Yes (same JVM) | JAR + cache (37 MB) |
+| Native image | ~24 ms | No | Binary (113 MB) |
+
+> **Plugin model in native mode:** Dynamic JAR loading is disabled in native image. Plugins ship compiled-in (Path A) or as separate OIPC processes (Path B). See [docs/dev-guide.md § Native image](docs/dev-guide.md#19-native-image).
+
+### Run the hello-world example
+
+```bash
+cd vatn/examples/01-hello-world
+mvn package -DskipTests
+java -jar target/01-hello-world-1.0-SNAPSHOT.jar
+# → http://localhost:8080/hello
+```
+
+---
+
 ## Why VATN?
 
 | | Node.js / Express | Spring Boot | **VATN** |
@@ -95,21 +314,21 @@ Key surfaces:
 
 ### `vatn-core` — The Runtime Engine
 
-The Helidon 4 SE–powered implementation of every `vatn-api` interface. Depends on Helidon, PF4J, Jackson, SQLite, and SLF4J. You never depend on this directly in your plugin — it is the runtime that runs your plugin.
+The Helidon 4 SE–powered implementation of every `vatn-api` interface. You never depend on this in your plugin — it is the runtime that runs your plugin.
 
 Notable internals:
 
 - **`VNodeRunner`** — one-liner bootstrap; wires HTTP router, plugin lifecycle, DAG engine, OIPC transport, and all platform services
 - **`VDagEngineImpl`** — Airflow-style task graph execution on virtual threads; SQLite persistence; crash-safe replay via `VEventLog`
 - **`OipcMessagingTransport`** — OIPC v2.12 binary protocol over Unix Domain Sockets (TCP fallback); full HELLO handshake; async virtual-thread accept loop
-- **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics` to C/Rust callers
+- **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics`
 - **`VRegistry`** — PF4J-based plugin loader with Ed25519 JAR signature verification; trust-level assignment (SANDBOXED → RESTRICTED → FULL)
 
 ### `vatn-cli` — Developer Toolbelt
 
 ```
 vatn run   [--port N] [--plugins <path>]   Start a VATN node
-vatn init  [--lang java|python] <name>     Scaffold a new plugin
+vatn init  [--lang java|python] <name>     Scaffold a new plugin project
 vatn test  [--path <plugin-dir>]           Run the test harness against a plugin
 vatn info                                  Print node info and loaded services
 vatn registry                              Manage remote plugin registries
@@ -171,115 +390,6 @@ Standalone tools for verifying OIPC wire compliance: byte-level frame inspection
 
 ---
 
-## Quick Start
-
-### Prerequisites
-
-- Java 25+ (OpenJDK 25 or GraalVM 25)
-- Maven 3.9+
-- **GraalVM 25** (Oracle GraalVM 25.0.2+, required for native image builds)
-
-### Build everything
-
-```bash
-git clone <vatn-repo>
-cd vatn
-mvn clean install -DskipTests
-```
-
-### Build options: JVM + Leyden, or native image
-
-VATN supports three runtime modes. All require GraalVM 25 (install once via SDKMAN):
-
-```bash
-sdk install java 25.0.2-graal
-sdk use java 25.0.2-graal
-```
-
-**Option A — JVM + Project Leyden AOT cache** (~116 ms cold start, ~15 MB cache file)
-
-```bash
-# Build the JAR and generate the Leyden cache in one step
-mvn package verify -Pleyden -pl vatn-cli -am -DskipTests
-# → vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar  (fat JAR, 22 MB)
-# → vatn-cli/target/vatn.aot                   (AOT cache, 15 MB)
-
-# Run with the cache (printed at build end)
-~/.sdkman/candidates/java/current/bin/java \
-  -XX:AOTCache=vatn-cli/target/vatn.aot \
-  -jar vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar --help
-
-# Or use the convenience script
-./vatn-cli/leyden-cache.sh run vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar --help
-```
-
-**Option B — GraalVM native image** (~24 ms cold start, ~113 MB single binary, no JVM required)
-
-```bash
-mvn clean package -Pnative -pl vatn-cli -am -DskipTests
-# → vatn-cli/target/vatn  (self-contained binary)
-
-./vatn-cli/target/vatn --version
-# VATN Runtime 1.0.0
-```
-
-| Mode | Cold start | JVM required | Distribution |
-|------|-----------|--------------|--------------|
-| JVM plain | ~144 ms | Yes (Java 25) | JAR (22 MB) |
-| JVM + Leyden AOT | ~116 ms | Yes (same JVM) | JAR + cache (37 MB) |
-| Native image | ~24 ms | No | Binary (113 MB) |
-
-> **Plugin model in native mode:** Dynamic JAR loading is disabled in native image. Plugins ship compiled-in (Path A) or as separate OIPC processes (Path B). See [docs/dev-guide.md § Native image](docs/dev-guide.md#19-native-image).
-
-### Run the hello-world example
-
-```bash
-cd examples/01-hello-world
-mvn package -DskipTests
-java -jar target/01-hello-world-1.0-SNAPSHOT.jar
-# → http://localhost:8080/hello
-```
-
-### Your first plugin from scratch
-
-```java
-// HelloPlugin.java
-public class HelloPlugin implements VNodePlugin {
-    public String getId()      { return "com.example.hello"; }
-    public String getName()    { return "Hello VATN"; }
-    public String getVersion() { return "1.0.0"; }
-
-    @Override
-    public void onInitialize(VNodeContext ctx) {
-        ctx.register("/hello", routes -> routes
-            .get("/",       (req, res) -> res.send("Hello from VATN!"))
-            .get("/{name}", (req, res) ->
-                res.sendJson("{\"msg\":\"Hello, " + req.pathParam("name") + "!\"}")));
-    }
-
-    @Override
-    public void onShutdown() {}
-}
-
-// Main.java
-public class Main {
-    public static void main(String[] args) throws Exception {
-        VNodeRunner.create(8080)
-            .addPlugin(new HelloPlugin())
-            .start();
-    }
-}
-```
-
-```
-$ curl http://localhost:8080/hello/world
-{"msg":"Hello, world!"}
-```
-
-Full step-by-step walkthrough, analogies to Node.js, DAG workflows, security, and deployment: **[docs/dev-guide.md](docs/dev-guide.md)**
-
----
-
 ## OIPC Protocol
 
 VATN nodes communicate over **OIPC (Octet IPC) v2.12 "Relentless"** — a lightweight binary/JSON protocol over Unix Domain Sockets (TCP fallback). The Java `VNodePlugin` SPI abstracts OIPC entirely; you only need it directly to write plugins in Python, Rust, or C.
@@ -337,8 +447,8 @@ DAG engine latency (JMH, warm JVM):
 
 | Repository | Purpose |
 |------------|---------|
-| [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN — with step-by-step migration tutorials |
-| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins: JWT auth (`vatn-plugin-auth`), security headers (`vatn-plugin-security`), stream indexer (`vatn-plugin-indexer`), web scraper (`vatn-plugin-scraper`) |
+| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins — see installer plugin menu for full list |
+| [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN with migration tutorials |
 
 ---
 
@@ -402,4 +512,3 @@ licensed and compatible with the MIT License.
 > in `vatn-bench` and is never shipped as part of the VATN runtime.
 
 ---
-

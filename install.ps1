@@ -462,6 +462,86 @@ if ($currentPath -notlike "*$binDir*") {
     Write-Info "Already in PATH: $binDir"
 }
 
+# ── Developer setup (optional) ───────────────────────────────────────────────
+Write-Step "Developer setup (optional)"
+
+Write-Host ""
+Write-Host "  Clone the VATN source repos to build custom plugins,"
+Write-Host "  contribute to the runtime, or explore the codebase."
+Write-Host "  Requires: git, Maven 3.9+"
+Write-Host ""
+
+$doClone = Invoke-Prompt "Clone source repos for local development? [y/N]" "N"
+if ($doClone -match '^[Yy]') {
+
+    if (-not (Test-Command 'git')) {
+        Write-Warn "git not found — skipping clone. Install Git for Windows and re-run."
+        Write-Host "  Then run:" -ForegroundColor DarkGray
+        Write-Host "    git clone https://github.com/$VatnOrg/$VatnCoreRepo.git" -ForegroundColor Cyan
+        Write-Host "    git clone https://github.com/$VatnOrg/$VatnPluginsRepo.git" -ForegroundColor Cyan
+    } else {
+        # detect sensible default dev directory
+        $devCandidates = @(
+            (Join-Path $env:USERPROFILE 'Development'),
+            (Join-Path $env:USERPROFILE 'Projects'),
+            (Join-Path $env:USERPROFILE 'dev'),
+            (Join-Path $env:USERPROFILE 'code'),
+            (Join-Path $env:USERPROFILE 'source')
+        )
+        $defaultDev = $devCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $defaultDev) { $defaultDev = Join-Path $env:USERPROFILE 'Development' }
+
+        $devDir = Invoke-Prompt "Development directory" $defaultDev
+        if (-not $devDir) { $devDir = $defaultDev }
+        if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
+
+        foreach ($repo in @($VatnCoreRepo, $VatnPluginsRepo)) {
+            $target = Join-Path $devDir $repo
+            if (Test-Path "$target\.git") {
+                Write-Info "$repo already cloned — pulling latest..."
+                try { git -C $target pull --ff-only 2>&1 | Out-Null; Write-Ok "$repo up to date" }
+                catch { Write-Warn "Could not update $repo" }
+            } else {
+                Write-Info "Cloning $repo..."
+                try {
+                    git clone "https://github.com/$VatnOrg/$repo.git" $target
+                    Write-Ok "$repo -> $target"
+                } catch { Write-Warn "Clone failed: $repo" }
+            }
+        }
+
+        Write-Host ""
+        $doDemo = Invoke-Prompt "Also clone vatn-demo (example ports and tutorials)? [y/N]" "N"
+        if ($doDemo -match '^[Yy]') {
+            $demoTarget = Join-Path $devDir 'vatn-demo'
+            if (Test-Path "$demoTarget\.git") {
+                try { git -C $demoTarget pull --ff-only 2>&1 | Out-Null } catch {}
+                Write-Info "vatn-demo already present"
+            } else {
+                try {
+                    git clone "https://github.com/$VatnOrg/vatn-demo.git" $demoTarget
+                    Write-Ok "vatn-demo -> $demoTarget"
+                } catch { Write-Warn "Clone failed: vatn-demo" }
+            }
+        }
+
+        Write-Host ""
+        Write-Ok "Source repos ready in $devDir"
+        Write-Host ""
+        Write-Host "  Build the runtime:" -ForegroundColor White
+        Write-Host "    cd $devDir\$VatnCoreRepo" -ForegroundColor Cyan
+        Write-Host "    mvn clean install -DskipTests   # builds api + core + cli" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Build plugins:" -ForegroundColor White
+        Write-Host "    cd $devDir\$VatnPluginsRepo" -ForegroundColor Cyan
+        Write-Host "    mvn clean install -DskipTests" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Deploy your build to the local VATN installation:" -ForegroundColor White
+        Write-Host "    copy $devDir\$VatnCoreRepo\vatn-cli\target\vatn-cli-*.jar $InstallDir\lib\vatn-cli.jar" -ForegroundColor Cyan
+        Write-Host "    copy $devDir\$VatnPluginsRepo\vatn-plugin-*\target\vatn-plugin-*.jar $InstallDir\plugins\" -ForegroundColor Cyan
+    }
+}
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  +------------------------------------------------------+" -ForegroundColor Green

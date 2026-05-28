@@ -405,6 +405,81 @@ esac
 # also export for the current session
 export PATH="$INSTALL_DIR/bin:$PATH"
 
+# ── Developer setup (optional) ───────────────────────────────────────────────
+step "Developer setup (optional)"
+
+printf "\n"
+printf "  Clone the VATN source repos to build custom plugins,\n"
+printf "  contribute to the runtime, or explore the codebase.\n"
+printf "  Requires: git, Maven 3.9+\n\n"
+
+ask "Clone source repos for local development? [y/N]:"
+if [[ "${REPLY:-n}" =~ ^[Yy]$ ]]; then
+
+  if ! command -v git &>/dev/null; then
+    warn "git not found on PATH — skipping clone."
+    printf "  Install git, then run:\n"
+    printf "  ${CYN}  git clone https://github.com/%s/%s.git${RST}\n" "$VATN_ORG" "$VATN_CORE_REPO"
+    printf "  ${CYN}  git clone https://github.com/%s/%s.git${RST}\n" "$VATN_ORG" "$VATN_PLUGINS_REPO"
+  else
+    # detect sensible default dev directory
+    DEFAULT_DEV=""
+    for candidate in "$HOME/Development" "$HOME/Projects" "$HOME/dev" "$HOME/code" "$HOME/src"; do
+      [ -d "$candidate" ] && { DEFAULT_DEV="$candidate"; break; }
+    done
+    [ -z "$DEFAULT_DEV" ] && DEFAULT_DEV="$HOME/Development"
+
+    ask "Development directory [$DEFAULT_DEV]:"
+    DEV_DIR="${REPLY:-$DEFAULT_DEV}"
+    DEV_DIR="${DEV_DIR/#\~/$HOME}"
+    mkdir -p "$DEV_DIR"
+
+    for repo in "$VATN_CORE_REPO" "$VATN_PLUGINS_REPO"; do
+      TARGET="$DEV_DIR/$repo"
+      if [ -d "$TARGET/.git" ]; then
+        info "$repo already cloned — pulling latest..."
+        git -C "$TARGET" pull --ff-only 2>/dev/null && ok "$repo up to date" || warn "Could not update $repo"
+      else
+        info "Cloning $repo..."
+        git clone "https://github.com/$VATN_ORG/$repo.git" "$TARGET" \
+          && ok "$repo → $TARGET" \
+          || warn "Clone failed: $repo (check network/permissions)"
+      fi
+    done
+
+    printf "\n"
+    ask "Also clone vatn-demo (example ports and migration tutorials)? [y/N]:"
+    if [[ "${REPLY:-n}" =~ ^[Yy]$ ]]; then
+      DEMO="$DEV_DIR/vatn-demo"
+      if [ -d "$DEMO/.git" ]; then
+        git -C "$DEMO" pull --ff-only 2>/dev/null || true
+        info "vatn-demo already present"
+      else
+        git clone "https://github.com/$VATN_ORG/vatn-demo.git" "$DEMO" \
+          && ok "vatn-demo → $DEMO" \
+          || warn "Clone failed: vatn-demo"
+      fi
+    fi
+
+    printf "\n"
+    ok "Source repos ready in $DEV_DIR"
+    printf "\n"
+    printf "  ${BLD}Build the runtime:${RST}\n"
+    printf "    ${CYN}cd %s/%s${RST}\n" "$DEV_DIR" "$VATN_CORE_REPO"
+    printf "    ${CYN}mvn clean install -DskipTests${RST}   # builds api + core + cli\n"
+    printf "\n"
+    printf "  ${BLD}Build plugins:${RST}\n"
+    printf "    ${CYN}cd %s/%s${RST}\n" "$DEV_DIR" "$VATN_PLUGINS_REPO"
+    printf "    ${CYN}mvn clean install -DskipTests${RST}\n"
+    printf "\n"
+    printf "  ${BLD}Deploy your build to the local VATN installation:${RST}\n"
+    printf "    ${CYN}cp %s/%s/vatn-cli/target/vatn-cli-*.jar %s/lib/vatn-cli.jar${RST}\n" \
+      "$DEV_DIR" "$VATN_CORE_REPO" "$INSTALL_DIR"
+    printf "    ${CYN}cp %s/%s/vatn-plugin-*/target/vatn-plugin-*.jar %s/plugins/${RST}\n" \
+      "$DEV_DIR" "$VATN_PLUGINS_REPO" "$INSTALL_DIR"
+  fi
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 printf "\n${BLD}${GRN}"
 printf "  ╔══════════════════════════════════════════════════════╗\n"
