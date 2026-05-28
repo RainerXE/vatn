@@ -1,8 +1,8 @@
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/InitCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/InfoCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/RunCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/RegistryCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/TestCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/VatnCLI.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/OipcBenchmarkCommand.java
-/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/Frejay/vatn-system/vatn-cli/src/main/java/dev/vatn/cli/commands/LogsCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/InitCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/LogsCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/TestCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/VatnCLI.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/RunCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/RegistryCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/InfoCommand.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/OipcBenchmarkCommand.java

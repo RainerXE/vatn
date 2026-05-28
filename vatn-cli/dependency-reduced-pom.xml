@@ -3,7 +3,7 @@
   <parent>
     <artifactId>vatn-parent</artifactId>
     <groupId>dev.vatn</groupId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0-alpha.10</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>vatn-cli</artifactId>
@@ -55,17 +55,118 @@
   </build>
   <profiles>
     <profile>
+      <id>leyden</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>3.4.1</version>
+            <executions>
+              <execution>
+                <id>enforce-graalvm25</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireJavaVersion>
+                      <version>[25,)</version>
+                      <message>Leyden AOT cache requires Java 25+. Use: sdk use java 25.0.2-graal</message>
+                    </requireJavaVersion>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>leyden-record</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>${vatn.java}</executable>
+                  <arguments>
+                    <argument>-XX:AOTMode=record</argument>
+                    <argument>-XX:AOTConfiguration=${project.build.directory}/vatn.aotconf</argument>
+                    <argument>-jar</argument>
+                    <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                    <argument>--version</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>leyden-create</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>${vatn.java}</executable>
+                  <arguments>
+                    <argument>-XX:AOTMode=create</argument>
+                    <argument>-XX:AOTConfiguration=${project.build.directory}/vatn.aotconf</argument>
+                    <argument>-XX:AOTCache=${project.build.directory}/vatn.aot</argument>
+                    <argument>-jar</argument>
+                    <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                    <argument>--version</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>leyden-info</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>echo</executable>
+                  <arguments>
+                    <argument>[Leyden] Cache ready. Run: ${vatn.java} -XX:AOTCache=${project.build.directory}/vatn.aot -jar ${project.build.directory}/${project.build.finalName}.jar</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <vatn.java>${user.home}/.sdkman/candidates/java/current/bin/java</vatn.java>
+      </properties>
+    </profile>
+    <profile>
       <id>native</id>
       <build>
         <plugins>
           <plugin>
             <groupId>org.graalvm.buildtools</groupId>
             <artifactId>native-maven-plugin</artifactId>
+            <version>0.10.1</version>
+            <extensions>true</extensions>
+            <executions>
+              <execution>
+                <id>build-native</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>compile-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
             <configuration>
               <mainClass>dev.vatn.cli.VatnCLI</mainClass>
               <imageName>vatn</imageName>
+              <metadataRepository>
+                <enabled>true</enabled>
+              </metadataRepository>
               <buildArgs>
                 <buildArg>--no-fallback</buildArg>
+                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
               </buildArgs>
             </configuration>
           </plugin>

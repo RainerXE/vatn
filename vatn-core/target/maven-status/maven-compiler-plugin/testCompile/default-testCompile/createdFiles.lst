@@ -1,4 +1,15 @@
-dev/vatn/core/transport/OipcMessagingTest.class
 dev/vatn/core/security/VSecretServiceTest.class
-dev/vatn/core/bridge/NativeBridgeTest.class
+dev/vatn/core/transport/VHttpFilterChainTest$1.class
 dev/vatn/core/LocalProcessServiceTest.class
+dev/vatn/core/VResourceLockRaiiTest.class
+dev/vatn/core/transport/VHttpFilterChainTest.class
+dev/vatn/core/messaging/VNamedQueueTest.class
+dev/vatn/core/transport/VHttpFilterChainTest$4.class
+dev/vatn/core/bridge/NativeBridgeTest.class
+dev/vatn/core/transport/VHttpFilterChainTest$StubResponse.class
+dev/vatn/core/transport/VHttpFilterChainTest$2.class
+dev/vatn/core/messaging/VTopicTest.class
+dev/vatn/core/transport/VHttpFilterChainTest$StubRequest.class
+dev/vatn/core/transport/OipcMessagingTest.class
+dev/vatn/core/transport/VHttpFilterChainTest$5.class
+dev/vatn/core/transport/VHttpFilterChainTest$3.class
