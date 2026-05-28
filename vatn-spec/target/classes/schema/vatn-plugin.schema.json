@@ -2,20 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vatn.dev/schemas/vatn-plugin.schema.json",
   "title": "VATN Plugin Manifest",
-  "description": "Formal specification for a language-agnostic VATN plugin",
+  "description": "Formal specification for a language-agnostic VATN plugin (VATN 1.0)",
   "type": "object",
-  "required": [
-    "id",
-    "name",
-    "version",
-    "vatnVersion",
-    "execution",
-    "capabilities"
-  ],
+  "required": ["id", "name", "version", "execution"],
   "properties": {
     "id": {
       "type": "string",
-      "description": "Unique plugin identifier (e.g. dev.frejay.tools.python)"
+      "description": "Unique reverse-DNS plugin identifier (e.g. dev.example.tools.python)"
     },
     "name": {
       "type": "string",
@@ -23,46 +16,106 @@
     },
     "version": {
       "type": "string",
-      "description": "Semantic version of the plugin"
+      "description": "Semantic version of the plugin (e.g. 1.0.0)"
     },
     "vatnVersion": {
       "type": "string",
-      "description": "VATN contract version required (e.g. >=1.0.0)"
+      "description": "Minimum VATN runtime version required (e.g. >=1.0.0). Optional — omit to allow any version."
     },
     "execution": {
       "type": "object",
-      "required": ["mode", "transport"],
+      "required": ["mode"],
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["IN_PROCESS_JVM", "OUT_OF_PROCESS_BIN", "FFI_NATIVE"]
+          "enum": ["IN_PROCESS_JVM", "OUT_OF_PROCESS_BIN", "FFI_NATIVE"],
+          "description": "How the plugin runs: in the VATN JVM, as an external process, or via native FFI"
         },
         "transport": {
           "type": "string",
-          "enum": ["IN_PROCESS", "UDS", "TCP_LOOPBACK", "MQTT"]
+          "enum": ["IN_PROCESS", "UDS", "TCP_LOOPBACK", "MQTT"],
+          "description": "IPC transport. Defaults: IN_PROCESS_JVM → IN_PROCESS; OUT_OF_PROCESS_BIN → UDS (falling back to TCP_LOOPBACK on Windows)"
         },
         "entrypoint": {
           "type": "string",
-          "description": "Command or script to execute (only for OUT_OF_PROCESS_BIN). Exampe: '/usr/bin/python3 main.py'"
+          "description": "Command to launch the plugin process (OUT_OF_PROCESS_BIN only). Example: 'python3 main.py' or './my-binary'"
+        },
+        "ffiLibrary": {
+          "type": "string",
+          "description": "Shared library path for FFI_NATIVE plugins (e.g. './libplugin.so')"
         }
       }
     },
     "capabilities": {
       "type": "array",
+      "description": "Security capabilities requested by this plugin. Omitting this field grants no capabilities beyond the defaults for the plugin's trust level.",
       "items": {
         "type": "object",
-        "required": ["type", "channel"],
+        "required": ["type"],
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["PUBLISHES", "SUBSCRIBES"]
+            "enum": [
+              "PUBLISHES",
+              "SUBSCRIBES",
+              "FILE_READ",
+              "FILE_WRITE",
+              "FILE_EXEC",
+              "NET_OUT",
+              "NET_IN",
+              "PROCESS_SPAWN",
+              "SECRET_READ",
+              "SECRET_WRITE",
+              "DB_READ",
+              "DB_WRITE"
+            ],
+            "description": "The capability type. PUBLISHES/SUBSCRIBES declare OIPC messaging channels. FILE_*/NET_*/PROCESS_*/SECRET_*/DB_* are OS-level permission grants."
           },
           "channel": {
             "type": "string",
-            "description": "The exact Vatn Discovery Lattice Channel or logical topic name"
+            "description": "Scope of the capability. For PUBLISHES/SUBSCRIBES: the OIPC channel name or pattern. For FILE_*: the path prefix. For NET_*: the host/CIDR. Use '*' to request unrestricted access within the type."
           }
         }
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "_comment": "In-process JVM plugin (PF4J)",
+      "id": "dev.example.analytics",
+      "name": "Analytics Plugin",
+      "version": "1.0.0",
+      "vatnVersion": ">=1.0.0",
+      "execution": { "mode": "IN_PROCESS_JVM" },
+      "capabilities": [
+        { "type": "PUBLISHES",  "channel": "analytics.events" },
+        { "type": "SUBSCRIBES", "channel": "user.actions" },
+        { "type": "DB_READ",    "channel": "analytics_*" }
+      ]
+    },
+    {
+      "_comment": "Out-of-process Python plugin",
+      "id": "dev.example.demo-python",
+      "name": "demo-python",
+      "version": "1.0.0",
+      "execution": {
+        "mode": "OUT_OF_PROCESS_BIN",
+        "entrypoint": "python3 main.py"
+      },
+      "capabilities": [
+        { "type": "FILE_READ", "channel": "/" },
+        { "type": "NET_OUT",   "channel": "*" }
+      ]
+    },
+    {
+      "_comment": "Chaos / test binary (no capabilities = sandbox-only)",
+      "id": "dev.chaos.hang",
+      "name": "Infinite Looper",
+      "version": "1.0.0",
+      "execution": {
+        "mode": "OUT_OF_PROCESS_BIN",
+        "entrypoint": "./looper"
+      }
+    }
+  ]
 }

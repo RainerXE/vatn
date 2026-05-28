@@ -6,7 +6,7 @@
     
     <groupId>dev.vatn</groupId>
     <artifactId>vatn-parent</artifactId>
-    <version>1.0-alpha.9</version>
+    <version>1.0-alpha.10</version>
     <packaging>pom</packaging>
     
     <name>VATN (Vatn App Transport Network) Parent</name>

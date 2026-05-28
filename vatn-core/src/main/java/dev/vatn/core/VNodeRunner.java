@@ -207,6 +207,7 @@ public class VNodeRunner {
         context.registerService(dev.vatn.api.VClockService.class, new VClockServiceImpl(context, dbManager));
         context.registerService(dev.vatn.api.VFileService.class, new LocalFileService());
         context.registerService(dev.vatn.api.VProcessService.class, new LocalProcessService());
+        context.registerService(dev.vatn.api.VSubprocessAuditService.class, new VSubprocessAuditServiceImpl());
         context.registerService(dev.vatn.api.VResourceLockService.class, new dev.vatn.core.VResourceLockServiceImpl(dbManager));
         context.registerService(dev.vatn.api.VHttpClient.class, new JavaVHttpClientImpl());
         context.registerService(dev.vatn.api.VGuardService.class, new dev.vatn.core.security.VGuardServiceImpl());
