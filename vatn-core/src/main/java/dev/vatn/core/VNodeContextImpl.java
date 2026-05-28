@@ -27,6 +27,8 @@ public class VNodeContextImpl implements VNodeContext {
     private final List<WsRegistration> wsRegistrations = new ArrayList<>();
     private final Map<String, Supplier<Boolean>> healthChecks = new LinkedHashMap<>();
     private final List<AgentRegistration> agentRegistrations = new ArrayList<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, dev.vatn.api.VAgentInfo> agentInfos =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public record HttpRegistration(String path, VHttpService service) {}
     public record WsRegistration(String path, dev.vatn.api.VWsListener listener) {}
@@ -173,6 +175,23 @@ public class VNodeContextImpl implements VNodeContext {
 
     public List<AgentRegistration> getAgentRegistrations() {
         return Collections.unmodifiableList(agentRegistrations);
+    }
+
+    /** Called by VAgentRuntime to register and update live agent state. */
+    public void updateAgentInfo(dev.vatn.api.VAgentInfo info) {
+        agentInfos.put(info.id(), info);
+    }
+
+    @Override
+    public java.util.List<dev.vatn.api.VAgentInfo> getAgentInfos() {
+        return java.util.List.copyOf(agentInfos.values());
+    }
+
+    @Override
+    public java.util.List<String> getRegisteredRoutes() {
+        return httpRegistrations.stream()
+                .map(HttpRegistration::path)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override

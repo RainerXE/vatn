@@ -58,9 +58,12 @@ class VAgentRuntime {
 
         VAgentContext ctx = buildContext();
 
+        publishInfo();
+
         switch (mode.strategy()) {
             case SINGLETON -> {
                 role = VAgentRole.PRIMARY;
+                publishInfo();
                 launchAgent(ctx);
             }
             case ACTIVE_PASSIVE -> {
@@ -136,9 +139,15 @@ class VAgentRuntime {
         }, mode.failoverTimeoutMs(), mode.heartbeatIntervalMs() * 2L, TimeUnit.MILLISECONDS);
     }
 
+    private void publishInfo() {
+        nodeCtx.updateAgentInfo(new dev.vatn.api.VAgentInfo(
+            agent.getId(), agent.getChannelType(), role, mode.strategy()));
+    }
+
     private void promote(VAgentContext ctx) {
         if (role == VAgentRole.PRIMARY) return;
         role = VAgentRole.PRIMARY;
+        publishInfo();
         log.info("Agent {} is now PRIMARY on node {}", agent.getId(), nodeCtx.getNodeId());
         roleChangeHandlers.forEach(h -> notifyHandler(h, VAgentRole.PRIMARY));
         nodeCtx.getMessaging().publish(
@@ -185,6 +194,7 @@ class VAgentRuntime {
                 nodeCtx.getMessaging().publish(
                     CH_RESIGN.formatted(agent.getId()), nodeCtx.getNodeId().getBytes());
                 role = VAgentRole.STANDBY;
+                publishInfo();
                 roleChangeHandlers.forEach(h -> notifyHandler(h, VAgentRole.STANDBY));
                 agent.onDemoted();
             }

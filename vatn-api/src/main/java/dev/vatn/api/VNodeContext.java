@@ -170,6 +170,20 @@ public interface VNodeContext {
     }
 
     /**
+     * Returns live snapshots of all registered agents, including their current role.
+     * The list updates dynamically as roles change via failover or resign.
+     */
+    @VatnApi(since = "1.0-alpha.7")
+    default java.util.List<VAgentInfo> getAgentInfos() { return java.util.List.of(); }
+
+    /**
+     * Returns the HTTP paths registered by plugins via {@link #register}.
+     * Used by tooling such as the admin UI.
+     */
+    @VatnApi(since = "1.0-alpha.7")
+    default java.util.List<String> getRegisteredRoutes() { return java.util.List.of(); }
+
+    /**
      * Identity of the current node runner.
      */
     String getNodeId();
