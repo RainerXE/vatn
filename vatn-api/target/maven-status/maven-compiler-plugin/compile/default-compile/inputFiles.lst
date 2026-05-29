@@ -19,6 +19,7 @@
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/security/VFlowPolicy.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/workflow/VXCom.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/workflow/VPool.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VWasmCallException.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/security/PolicyViolation.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/workflow/VDag.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VSubprocessAuditService.java
@@ -36,6 +37,8 @@
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VAgentContext.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VNodeContext.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VSchemaContributor.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VWasmRuntime.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VWasmModule.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VMemoryChannel.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VJson.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-api/src/main/java/dev/vatn/api/VDiscovery.java

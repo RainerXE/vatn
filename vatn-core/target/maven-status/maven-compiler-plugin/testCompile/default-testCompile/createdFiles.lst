@@ -1,6 +1,8 @@
+dev/vatn/core/ShellEnvPolicyTest.class
 dev/vatn/core/security/VSecretServiceTest.class
 dev/vatn/core/transport/VHttpFilterChainTest$1.class
 dev/vatn/core/LocalProcessServiceTest.class
+dev/vatn/core/VSubprocessAuditServiceTest.class
 dev/vatn/core/VResourceLockRaiiTest.class
 dev/vatn/core/transport/VHttpFilterChainTest.class
 dev/vatn/core/messaging/VNamedQueueTest.class
