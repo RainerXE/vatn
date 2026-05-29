@@ -1,3 +1,4 @@
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/ShellEnvPolicyTest.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/workflow/VDagSchedulerTest.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/workflow/VDagEngineTestHarness.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/workflow/VJobQueueTest.java
@@ -14,3 +15,4 @@
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/workflow/VPoolManagerTest.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/workflow/VEventLogTest.java
 /Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/bridge/NativeBridgeTest.java
+/Users/rainer/SynologyDrive/Development/MyJava/_JavaProjects/vatn/vatn-core/src/test/java/dev/vatn/core/VSubprocessAuditServiceTest.java

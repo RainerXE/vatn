@@ -1,5 +1,6 @@
 dev/vatn/api/VatnSecurity.class
 dev/vatn/api/workflow/VClaimOptions.class
+dev/vatn/api/VWasmCallException.class
 dev/vatn/api/VDiscovery.class
 dev/vatn/api/VResourceLockService.class
 dev/vatn/api/VPluginRegistry.class
@@ -46,7 +47,9 @@ dev/vatn/api/security/VTrustLevel.class
 dev/vatn/api/memory/VMemoryEvent.class
 dev/vatn/api/VOntologyRules.class
 dev/vatn/api/VHttpRequest.class
+dev/vatn/api/VWasmModule.class
 dev/vatn/api/VPluginManager$PluginStatus.class
+dev/vatn/api/VWasmRuntime.class
 dev/vatn/api/VGuardService.class
 dev/vatn/api/VJson.class
 dev/vatn/api/VUpdateService.class
