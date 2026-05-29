@@ -15,6 +15,66 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
 
 ---
 
+## Why VATN?
+
+| | Node.js / Express | Spring Boot | **VATN** |
+|---|---|---|---|
+| Startup time | ~300 ms | ~4–8 s | ~200 ms (JVM) / ~10 ms (native) |
+| HTTP throughput (TechEmpower-style) | ~78 k req/s | ~243 k req/s | **~310 k req/s** |
+| Concurrency model | Event loop (async/await) | Thread pool or reactive | **Virtual threads — blocking style, zero threads wasted** |
+| Plugin system | NPM packages | Spring Beans / auto-config | **`VNodePlugin` SPI — JAR drop-in, hot-swap, trust-level enforcement** |
+| DAG / workflow engine | Bull, Agenda (third-party) | Spring Batch (heavy) | **Built-in `VDagEngine` — Airflow-inspired, SQLite-backed, crash-safe** |
+| Work queues | Bull/BullMQ + Redis | RabbitMQ / SQS clients | **`VQueueService` — named queues, claim/ack, DLQ, atomic enqueue; no broker** |
+| Durable pub/sub | Kafka / Redis Streams | Spring Cloud Stream | **`VTopicService` — per-consumer offsets, replay, seek; SQLite-backed** |
+| Advisory locks | Redlock (Redis) | `@Lock` + DB row | **`VResourceLockService` — TTL-protected, RAII `VLock`, crash-safe** |
+| Secrets | dotenv / Vault SDK | Spring Vault | **`VSecretService` — AES-256-GCM, filesystem-backed, vault-ready SPI** |
+| Node identity | None | None | **Ed25519 key pair per node, sign/verify data** |
+| Federation | None | None | **UDP LAN discovery (v1); full lattice mesh (v2)** |
+| GraalVM native image | No | Optional | **First-class — `vatn_node_start()` C ABI** |
+| Language interop | N-API (C) | JNI | **OIPC v2.12 — language-agnostic binary protocol over UDS/TCP** |
+
+> **On queues and topics without a broker:** The work-queue and durable-topic design was inspired by [honker](https://github.com/russellromney/honker) — the idea that if SQLite is already your primary store, the message queue and event stream should live in the same file. This eliminates the dual-write problem between business tables and a separate broker, and removes an entire infrastructure component from your stack.
+
+---
+
+## Architecture
+
+```
+ ┌──────────────────────────────────────────────────────────────────────┐
+ │                          vatn-api  (SPI)                             │
+ │  VNodePlugin · VNodeContext · VHttpService · VMessaging · VDagEngine │
+ │  VGuardService · VSecretService · VNodeIdentity · VDiscovery · ...   │
+ └───────────────────────────┬──────────────────────────────────────────┘
+                             │  implemented by
+ ┌───────────────────────────▼──────────────────────────────────────────┐
+ │                       vatn-core  (runtime)                           │
+ │                                                                      │
+ │   VNodeRunner ──── Helidon 4 SE HTTP ──── VHttpService adapters      │
+ │        │                                                             │
+ │        ├── VRegistry (PF4J plugin loader, Ed25519 verification)      │
+ │        ├── VDagEngineImpl  (SQLite-backed, crash-safe replay)        │
+ │        ├── OipcMessagingTransport  (UDS / TCP, OIPC v2.12)           │
+ │        ├── VNodeIdentityImpl  (Ed25519 keypair, ~/.vatn/.identity)   │
+ │        ├── VSecretServiceImpl  (AES-256-GCM, ~/.vatn/secrets/)       │
+ │        ├── VUdpDiscovery  (UDP multicast LAN announcements)          │
+ │        └── VNativeBridge  (@CEntryPoint C ABI for GraalVM)           │
+ └──────────────┬───────────────────────────────────────────────────────┘
+                │  loaded into
+ ┌──────────────▼───────────────────────────────────────────────────────┐
+ │             Your plugins  /  vatn-plugin-*                           │
+ │   your own VNodePlugin impls  ·  vatn-plugins ecosystem              │
+ └──────────────────────────────────────────────────────────────────────┘
+
+ ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
+ │  vatn-cli    │  │  vatn-bench  │  │  vatn-test   │  │ vatn-spec  │
+ │  vatn run    │  │  JMH / wrk   │  │  harness     │  │ OIPC spec  │
+ │  vatn init   │  │  benchmarks  │  │              │  │            │
+ │  vatn test   │  └──────────────┘  └──────────────┘  └────────────┘
+ └──────────────┘
+```
+
+---
+
 ## Installation
 
 The fastest way to get VATN running — one command installs the CLI, GraalVM (optional), and your chosen plugins.
@@ -85,68 +145,15 @@ VATN_PLUGINS=cors,auth,swagger,admin,postgres \
 | `VATN_JAVA` | `graal` / `graalce` / `skip` | interactive |
 | `VATN_PLUGINS` | comma list, `recommended`, `all` | interactive |
 
-### Available plugins
+### Plugins
 
-| Plugin | Purpose |
-|--------|---------|
-| `admin` | Admin dashboard UI — plugins, agents, workflows, named queues, JVM metrics _(always included)_ |
-| `cors` | CORS filter for browser-accessible APIs |
-| `auth` | JWT + API-key authentication |
-| `swagger` | OpenAPI / Swagger UI at `/api/docs` |
-| `security` | CSRF protection, rate limiting, security headers |
-| `bcrypt` | BCrypt password hashing service |
-| `postgres` | PostgreSQL connection pool (HikariCP) |
-| `redis` | Redis client (Jedis) |
-| `mongodb` | MongoDB driver integration |
-| `openai` | OpenAI / LLM client |
-| `metrics` | Prometheus `/metrics` endpoint (Micrometer) |
-| `email` | SMTP email via Jakarta Mail |
-| `slack` | Slack webhook + Events API |
-| `s3` | AWS S3 / compatible object storage |
-| `comm` | Communication hub: Telegram, Signal, RCS with failover |
-| `indexer` | Full-text search indexing |
-| `scraper` | Headless web scraping |
-| `activitypub` | ActivityPub / Fediverse federation |
+The full plugin catalog — auth, postgres, redis, openai, slack, WASM, TerminalPhone, and more — lives in **[vatn-plugins →](https://github.com/RainerXE/vatn-plugins)**.
 
 ---
 
-## Quick Start — first plugin in 5 minutes
+## Building your first plugin
 
-With VATN installed:
-
-```bash
-vatn init my-project      # scaffold Maven project + HelloPlugin skeleton
-cd my-project
-```
-
-Edit `src/main/java/.../HelloPlugin.java`:
-
-```java
-public class HelloPlugin implements VNodePlugin {
-    public String getId()      { return "com.example.hello"; }
-    public String getName()    { return "Hello VATN"; }
-    public String getVersion() { return "1.0.0"; }
-
-    @Override
-    public void onInitialize(VNodeContext ctx) {
-        ctx.register("/hello", routes -> routes
-            .get("/",       (req, res) -> res.send("Hello from VATN!"))
-            .get("/{name}", (req, res) ->
-                res.sendJson("{\"msg\":\"Hello, " + req.pathParam("name") + "!\"}")));
-    }
-
-    @Override public void onShutdown() {}
-}
-```
-
-```bash
-vatn run                  # compiles and starts on :8080
-
-curl http://localhost:8080/hello/world
-# {"msg":"Hello, world!"}
-```
-
-Full step-by-step walkthrough, Node.js analogies, DAG workflows, security, and deployment: **[docs/dev-guide.md](docs/dev-guide.md)**
+A step-by-step walkthrough with code, Node.js analogies, DAG workflows, security, and deployment is in **[vatn-plugins — Quick Start →](https://github.com/RainerXE/vatn-plugins#quick-start--first-plugin-in-5-minutes)**.
 
 ---
 
@@ -230,66 +237,6 @@ cd vatn/examples/01-hello-world
 mvn package -DskipTests
 java -jar target/01-hello-world-1.0-SNAPSHOT.jar
 # → http://localhost:8080/hello
-```
-
----
-
-## Why VATN?
-
-| | Node.js / Express | Spring Boot | **VATN** |
-|---|---|---|---|
-| Startup time | ~300 ms | ~4–8 s | ~200 ms (JVM) / ~10 ms (native) |
-| HTTP throughput (TechEmpower-style) | ~78 k req/s | ~243 k req/s | **~310 k req/s** |
-| Concurrency model | Event loop (async/await) | Thread pool or reactive | **Virtual threads — blocking style, zero threads wasted** |
-| Plugin system | NPM packages | Spring Beans / auto-config | **`VNodePlugin` SPI — JAR drop-in, hot-swap, trust-level enforcement** |
-| DAG / workflow engine | Bull, Agenda (third-party) | Spring Batch (heavy) | **Built-in `VDagEngine` — Airflow-inspired, SQLite-backed, crash-safe** |
-| Work queues | Bull/BullMQ + Redis | RabbitMQ / SQS clients | **`VQueueService` — named queues, claim/ack, DLQ, atomic enqueue; no broker** |
-| Durable pub/sub | Kafka / Redis Streams | Spring Cloud Stream | **`VTopicService` — per-consumer offsets, replay, seek; SQLite-backed** |
-| Advisory locks | Redlock (Redis) | `@Lock` + DB row | **`VResourceLockService` — TTL-protected, RAII `VLock`, crash-safe** |
-| Secrets | dotenv / Vault SDK | Spring Vault | **`VSecretService` — AES-256-GCM, filesystem-backed, vault-ready SPI** |
-| Node identity | None | None | **Ed25519 key pair per node, sign/verify data** |
-| Federation | None | None | **UDP LAN discovery (v1); full lattice mesh (v2)** |
-| GraalVM native image | No | Optional | **First-class — `vatn_node_start()` C ABI** |
-| Language interop | N-API (C) | JNI | **OIPC v2.12 — language-agnostic binary protocol over UDS/TCP** |
-
-> **On queues and topics without a broker:** The work-queue and durable-topic design was inspired by [honker](https://github.com/russellromney/honker) — the idea that if SQLite is already your primary store, the message queue and event stream should live in the same file. This eliminates the dual-write problem between business tables and a separate broker, and removes an entire infrastructure component from your stack.
-
----
-
-## Architecture
-
-```
- ┌──────────────────────────────────────────────────────────────────────┐
- │                          vatn-api  (SPI)                             │
- │  VNodePlugin · VNodeContext · VHttpService · VMessaging · VDagEngine │
- │  VGuardService · VSecretService · VNodeIdentity · VDiscovery · ...   │
- └───────────────────────────┬──────────────────────────────────────────┘
-                             │  implemented by
- ┌───────────────────────────▼──────────────────────────────────────────┐
- │                       vatn-core  (runtime)                           │
- │                                                                      │
- │   VNodeRunner ──── Helidon 4 SE HTTP ──── VHttpService adapters      │
- │        │                                                             │
- │        ├── VRegistry (PF4J plugin loader, Ed25519 verification)      │
- │        ├── VDagEngineImpl  (SQLite-backed, crash-safe replay)        │
- │        ├── OipcMessagingTransport  (UDS / TCP, OIPC v2.12)           │
- │        ├── VNodeIdentityImpl  (Ed25519 keypair, ~/.vatn/.identity)   │
- │        ├── VSecretServiceImpl  (AES-256-GCM, ~/.vatn/secrets/)       │
- │        ├── VUdpDiscovery  (UDP multicast LAN announcements)          │
- │        └── VNativeBridge  (@CEntryPoint C ABI for GraalVM)           │
- └──────────────┬───────────────────────────────────────────────────────┘
-                │  loaded into
- ┌──────────────▼───────────────────────────────────────────────────────┐
- │             Your plugins  /  vatn-plugin-*                           │
- │   your own VNodePlugin impls  ·  vatn-plugins ecosystem              │
- └──────────────────────────────────────────────────────────────────────┘
-
- ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
- │  vatn-cli    │  │  vatn-bench  │  │  vatn-test   │  │ vatn-spec  │
- │  vatn run    │  │  JMH / wrk   │  │  harness     │  │ OIPC spec  │
- │  vatn init   │  │  benchmarks  │  │              │  │            │
- │  vatn test   │  └──────────────┘  └──────────────┘  └────────────┘
- └──────────────┘
 ```
 
 ---
@@ -439,6 +386,7 @@ Key surfaces:
 | `VTracingService` | Distributed tracing (noop by default; OTLP via `VATN_OTLP_ENDPOINT`) |
 | `VSandboxProvider` | Execute shell commands inside the node's security sandbox — guard-checked, OS-isolated, audit-logged |
 | `VSubprocessAuditService` / `VSubprocessAuditEntry` | Append-only log of every subprocess execution: sessionId, command, exitCode, durationMs, timestamp |
+| `VWasmRuntime` / `VWasmModule` | Load and execute `.wasm` modules — interpreter or native-compile backends |
 | `workflow.*` | Full DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom`, `VPool`, `VEventLog` |
 | `security.*` | `VFirewall`, `VFlowPolicy`, `VPolicyInterjector`, `VTrustLevel`, `VSecretService` |
 
@@ -576,6 +524,7 @@ DAG engine latency (JMH, warm JVM):
 | **Architecture** | [docs/vatn-architecture.md](docs/vatn-architecture.md) |
 | **API source** | `vatn-api/src/main/java/dev/vatn/api/` |
 | **Benchmarks** | `vatn-bench/bench/` |
+| **Plugin catalog** | [vatn-plugins →](https://github.com/RainerXE/vatn-plugins) |
 
 ---
 
@@ -583,7 +532,7 @@ DAG engine latency (JMH, warm JVM):
 
 | Repository | Purpose |
 |------------|---------|
-| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins — see installer plugin menu for full list |
+| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins — auth, postgres, redis, openai, WASM, Tor/voice, and more |
 | [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN with migration tutorials |
 
 ---
