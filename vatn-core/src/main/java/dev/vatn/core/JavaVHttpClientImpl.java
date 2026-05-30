@@ -32,7 +32,7 @@ public class JavaVHttpClientImpl implements VHttpClient {
                 .GET();
             headers.forEach(builder::header);
             HttpResponse<String> resp = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            return new Response(resp.statusCode(), resp.body());
+            return new Response(resp.statusCode(), resp.body(), resp.headers().map());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("HTTP GET interrupted: " + url, e);
@@ -49,7 +49,7 @@ public class JavaVHttpClientImpl implements VHttpClient {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
             headers.forEach(builder::header);
             HttpResponse<String> resp = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            return new Response(resp.statusCode(), resp.body());
+            return new Response(resp.statusCode(), resp.body(), resp.headers().map());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("HTTP POST interrupted: " + url, e);
