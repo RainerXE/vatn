@@ -203,15 +203,32 @@ public class VNodeRunner {
         }
         dbManager.registerSchemaContributor(new dev.vatn.core.workflow.VatnWorkflowSchemaContributor());
         dbManager.registerSchemaContributor(new dev.vatn.core.messaging.VatnMessagingSchemaContributor());
+        dbManager.registerSchemaContributor(new dev.vatn.core.blob.VatnBlobSchemaContributor());
+        dbManager.registerSchemaContributor(new dev.vatn.core.replication.VatnReplicationSchemaContributor());
         context.registerService(dev.vatn.api.VPersistenceService.class, dbManager);
         context.registerService(dev.vatn.api.VClockService.class, new VClockServiceImpl(context, dbManager));
         context.registerService(dev.vatn.api.VFileService.class, new LocalFileService());
         context.registerService(dev.vatn.api.VProcessService.class, new LocalProcessService());
         context.registerService(dev.vatn.api.VSubprocessAuditService.class, new VSubprocessAuditServiceImpl());
         context.registerService(dev.vatn.api.VResourceLockService.class, new dev.vatn.core.VResourceLockServiceImpl(dbManager));
-        context.registerService(dev.vatn.api.VHttpClient.class, new JavaVHttpClientImpl());
         context.registerService(dev.vatn.api.VGuardService.class, new dev.vatn.core.security.VGuardServiceImpl());
-        context.registerService(dev.vatn.api.VRateLimiter.class, new VTokenBucketRateLimiter());
+        // Rate limiter first, so the resilient HTTP client can honour outbound upstream quotas.
+        VTokenBucketRateLimiter rateLimiter = new VTokenBucketRateLimiter();
+        context.registerService(dev.vatn.api.VRateLimiter.class, rateLimiter);
+        // Resilient outbound HTTP client (retry/backoff + ETag/TTL cache + per-host circuit breaker),
+        // rate-limit bound so "out:<host>" quotas are respected automatically.
+        context.registerService(dev.vatn.api.VHttpClient.class,
+            new VResilientHttpClient(new JavaVHttpClientImpl(),
+                dev.vatn.api.VHttpClient.RetryPolicy.defaults(),
+                dev.vatn.api.VHttpClient.CachePolicy.defaults(),
+                dev.vatn.api.VHttpClient.CircuitBreakerPolicy.defaults(),
+                rateLimiter));
+        // Lightweight periodic scheduler (cron / fixed interval), decoupled from the DAG engine.
+        context.registerService(dev.vatn.api.VScheduler.class, new VSchedulerImpl());
+        // Content/blob store: local content-addressed cache with pin/evict under ~/.vatn/blobs.
+        context.registerService(dev.vatn.api.VBlobStore.class,
+            new dev.vatn.core.blob.LocalBlobStore(dbManager,
+                java.nio.file.Paths.get(System.getProperty("user.home"), ".vatn", "blobs")));
         context.registerService(dev.vatn.api.security.VSecretService.class,
             new dev.vatn.core.security.VSecretServiceImpl(dbManager));
         context.registerService(dev.vatn.api.workflow.VEventLog.class,
@@ -248,7 +265,12 @@ public class VNodeRunner {
         if (messagingOverride != null) {
             this.context.registerService(dev.vatn.api.VMessaging.class, messagingOverride);
         }
-        
+
+        // 1.4 Cross-node RPC over the (now finalised) messaging transport.
+        dev.vatn.core.rpc.VRpcServiceImpl rpcService =
+            new dev.vatn.core.rpc.VRpcServiceImpl(context, context.getMessaging());
+        context.registerService(dev.vatn.api.VRpcService.class, rpcService);
+
         for (VNodePlugin plugin : hostedPlugins) {
             logger.info("Initializing plugin: {} ({})", plugin.getName(), plugin.getId());
             ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
@@ -408,6 +430,12 @@ public class VNodeRunner {
         
         context.registerService(dev.vatn.api.VDiscovery.class, discovery);
         context.registerService(dev.vatn.api.VNameResolver.class, nameResolver);
+
+        // Index sync / replication — built on the change feed, RPC, and discovery's peer cache.
+        context.registerService(dev.vatn.api.replication.VReplicationService.class,
+            new dev.vatn.core.replication.VReplicationServiceImpl(
+                context.getNodeId(), dbManager, rpcService,
+                () -> discovery.getPeerCache().keySet()));
         
         // Start LAN discovery
         udpDiscovery = new UdpDiscoveryTransport(discovery);

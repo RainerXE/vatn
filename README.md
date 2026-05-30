@@ -27,6 +27,13 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
 | Work queues | Bull/BullMQ + Redis | RabbitMQ / SQS clients | **`VQueueService` — named queues, claim/ack, DLQ, atomic enqueue; no broker** |
 | Durable pub/sub | Kafka / Redis Streams | Spring Cloud Stream | **`VTopicService` — per-consumer offsets, replay, seek; SQLite-backed** |
 | Advisory locks | Redlock (Redis) | `@Lock` + DB row | **`VResourceLockService` — TTL-protected, RAII `VLock`, crash-safe** |
+| Rate limiting | express-rate-limit / Nginx | Spring `@RateLimiter` | **`VRateLimiter` — inbound routes + outbound upstream quotas; per-second or windowed** |
+| Outbound HTTP | axios / node-fetch | RestTemplate / WebClient | **`VHttpClient` — resilient: retry/backoff, ETag/TTL cache, per-host circuit breaker** |
+| Periodic scheduler | node-cron / Agenda | `@Scheduled` | **`VScheduler` — cron or fixed-interval, skip-on-overlap, virtual-thread dispatch** |
+| Blob / content store | multer + S3 SDK | Spring Content | **`VBlobStore` — CAS (sha256), streaming, range reads, pin/evict; S3 backend via plugin** |
+| Cross-node RPC | HTTP calls + discovery | Spring Cloud OpenFeign | **`VRpcService` — typed request/response over OIPC/VMessaging, correlation + timeout** |
+| Data sync / replication | custom + CRDTs | Hazelcast / Infinispan | **`VReplicationService` — change-feed, per-peer watermarks, LWW/custom conflict resolution, partial replication** |
+| Full-text search | elasticsearch client | Spring Data + Lucene | **`vatn-plugin-fts` — SQLite FTS5, BM25, snippets, no infrastructure** |
 | Secrets | dotenv / Vault SDK | Spring Vault | **`VSecretService` — AES-256-GCM, filesystem-backed, vault-ready SPI** |
 | Node identity | None | None | **Ed25519 key pair per node, sign/verify data** |
 | Federation | None | None | **UDP LAN discovery (v1); full lattice mesh (v2)** |
@@ -379,6 +386,12 @@ Key surfaces:
 | `VQueueService` / `VNamedQueue` | Named work queues — claim/ack, priority, DLQ, delayed jobs, atomic enqueue |
 | `VTopicService` / `VTopic` | Durable pub/sub topics — per-consumer offsets, replay, seek, pause/resume |
 | `VResourceLockService` / `VLock` | Advisory TTL locks — `tryAcquire` / `acquire` returning RAII `VLock` handles |
+| `VRateLimiter` | Token-bucket rate limiter — inbound routes and outbound upstreams; per-second **or** arbitrary-window quotas (`configure(key, 1000, Duration.ofDays(1))`); blocking `acquire` + `millisUntilAvailable` for outbound callers |
+| `VHttpClient` | Outbound HTTP SPI — `RetryPolicy` (exponential backoff, jitter, `Retry-After`), `CachePolicy` (ETag/TTL), `CircuitBreakerPolicy` (per-host); response carries headers for conditional revalidation |
+| `VScheduler` | Lightweight periodic scheduler — 5-field cron (`cron(name, expr, task)`) or fixed interval (`every(name, Duration, task)`), skip-on-overlap, decoupled from the DAG engine |
+| `VBlobStore` | Content/blob-store SPI — content-addressing (`putContent` → `"sha256:<hex>"`), streaming, byte-range reads (`openRange(key, offset, length)`), pin/evict local cache; runtime default is a local CAS under `~/.vatn/blobs`; `vatn-plugin-s3` provides an S3 backend |
+| `VRpcService` | Application-level cross-node RPC over `VMessaging` — typed request/response with correlation IDs, timeout, and error propagation; today in-process, federated under Lattice v2 |
+| `VReplicationService` | Index sync / replication primitive — change-feed, per-peer watermarks, pluggable `VConflictResolver` (default: last-writer-wins), `VReplicationFilter` for partial replication |
 | `VGuardService` | Intercept input, output, and tool calls for PII / SSRF filtering |
 | `VSecretService` | Store and retrieve encrypted secrets |
 | `VNodeIdentity` | Sign and verify data with the node's Ed25519 key |
@@ -387,7 +400,8 @@ Key surfaces:
 | `VSandboxProvider` | Execute shell commands inside the node's security sandbox — guard-checked, OS-isolated, audit-logged |
 | `VSubprocessAuditService` / `VSubprocessAuditEntry` | Append-only log of every subprocess execution: sessionId, command, exitCode, durationMs, timestamp |
 | `VWasmRuntime` / `VWasmModule` | Load and execute `.wasm` modules — interpreter or native-compile backends |
-| `workflow.*` | Full DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom`, `VPool`, `VEventLog` |
+| `workflow.*` | Full DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom`, `VPool`, `VEventLog`, `VDagScheduler` |
+| `replication.*` | Replication model: `VChange`, `VConflictResolver`, `VReplicationFilter`, `VReplicationConfig`, `VReplicatedSet` |
 | `security.*` | `VFirewall`, `VFlowPolicy`, `VPolicyInterjector`, `VTrustLevel`, `VSecretService` |
 
 ### `vatn-core` — The Runtime Engine
@@ -401,6 +415,12 @@ Notable internals:
 - **`VQueueServiceImpl`** — named work queues backed by `vatn_named_queue_jobs`; visibility-timeout sweeper on a background virtual thread; supports DLQ forwarding and atomic enqueue on a caller-supplied connection
 - **`VTopicServiceImpl`** — durable pub/sub backed by `vatn_topic_events` + per-consumer `vatn_topic_offsets`; offset auto-saved every 1000 events or 1 second; consumers resume from their saved position on restart
 - **`VResourceLockServiceImpl`** — SQLite-backed TTL advisory locks; `tryAcquire` / `acquire` return `VLock` RAII handles that release on `close()`
+- **`VTokenBucketRateLimiter`** — lazy-refill token bucket with nanosecond precision; supports per-second limits and arbitrary-window quotas (e.g. 1 000 permits/day); `acquire` blocks a virtual thread; `millisUntilAvailable` returns a backoff hint
+- **`VResilientHttpClient`** — retry-with-backoff decorator over `JavaVHttpClientImpl`; per-key retry policy (exponential + jitter + `Retry-After`), ETag/TTL response cache (LRU, max 1 024 entries), and per-host circuit breaker (CLOSED / HALF_OPEN / OPEN); registered as the default `VHttpClient`; rate-limit-bound to respect outbound upstream quotas automatically
+- **`VSchedulerImpl`** — virtual-thread-backed periodic scheduler; 5-field cron via `CronEvaluator` (reusable class shared with the DAG scheduler); fixed-interval alternative; skip-on-overlap guarantee; registered as `VScheduler`
+- **`LocalBlobStore`** — content-addressed local blob cache under `~/.vatn/blobs`; SHA-256 keyed, deduplicating, byte-range reads, LRU eviction of unpinned blobs; registered as `VBlobStore` (overridden by `vatn-plugin-s3` when that plugin is loaded)
+- **`VRpcServiceImpl`** — request/response RPC over `VMessaging`; length-prefixed binary framing with correlation IDs; per-call timeout watchdog on a virtual thread; server-side dispatch on virtual threads; registered as `VRpcService`
+- **`VReplicationServiceImpl`** — change-feed pull/push over `VRpcService`; per-peer watermarks in `vatn_repl_watermark`; Lamport-clock versioning; pluggable `VConflictResolver`; `VReplicationFilter` for partial replication (per-peer key-space sharding)
 - **`OipcMessagingTransport`** — OIPC v2.12 binary protocol over Unix Domain Sockets (TCP fallback); full HELLO handshake; async virtual-thread accept loop
 - **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics`
 - **`VRegistry`** — PF4J-based plugin loader with Ed25519 JAR signature verification; trust-level assignment (SANDBOXED → RESTRICTED → FULL)
