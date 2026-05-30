@@ -50,9 +50,14 @@ public class VRpcServiceImpl implements VRpcService {
     private final Consumer<byte[]> responseListener = this::onResponse;
 
     public VRpcServiceImpl(VNodeContext ctx, VMessaging messaging) {
-        this.ctx = ctx;
+        this(ctx.getNodeId(), messaging);
+    }
+
+    /** Test-friendly constructor that takes a plain node-id string directly. */
+    public VRpcServiceImpl(String nodeId, VMessaging messaging) {
+        this.ctx = null;
+        this.localNodeId = nodeId;
         this.messaging = messaging;
-        this.localNodeId = ctx.getNodeId();
         messaging.subscribe(reqChannel(localNodeId), requestListener);
         messaging.subscribe(respChannel(localNodeId), responseListener);
         log.info("[RPC] Listening on {} for node {}", reqChannel(localNodeId), localNodeId);
