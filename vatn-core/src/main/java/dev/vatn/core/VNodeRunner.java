@@ -26,6 +26,7 @@ public class VNodeRunner {
     
     private final int port;
     private final java.nio.file.Path identityPath;
+    private java.nio.file.Path dbPath; // null = use default ~/.vatn/database.db
     private final List<VNodePlugin> hostedPlugins = new ArrayList<>();
     private final List<io.helidon.webserver.http.HttpFeature> customFeatures = new ArrayList<>();
     private final List<ServiceRegistration> customServices = new ArrayList<>();  // kept for VNodeRunner.register() callers
@@ -76,6 +77,21 @@ public class VNodeRunner {
 
     public static VNodeRunner create(int port, java.nio.file.Path pluginPath, java.nio.file.Path identityPath) {
         return new VNodeRunner(port, pluginPath, identityPath);
+    }
+
+    /**
+     * Sets a custom database path for this node instance, overriding the default
+     * {@code ~/.vatn/database.db}. Use this when the application should store its
+     * data in an application-specific directory (e.g. {@code ~/.frejay/frejay.db})
+     * to avoid sharing or polluting the VATN framework's own database.
+     *
+     * @param path absolute path to the SQLite database file; parent directories are
+     *             created automatically on first access.
+     * @return this runner for chaining
+     */
+    public VNodeRunner withDbPath(java.nio.file.Path path) {
+        this.dbPath = path;
+        return this;
     }
 
     /**
@@ -196,7 +212,10 @@ public class VNodeRunner {
         }
         
         // 1.1 Initialize Persistence Service
-        String jdbcUrl = "jdbc:sqlite:" + java.nio.file.Paths.get(System.getProperty("user.home"), ".vatn", "database.db");
+        java.nio.file.Path resolvedDb = (dbPath != null) ? dbPath
+                : java.nio.file.Paths.get(System.getProperty("user.home"), ".vatn", "database.db");
+        try { java.nio.file.Files.createDirectories(resolvedDb.getParent()); } catch (java.io.IOException ignored) {}
+        String jdbcUrl = "jdbc:sqlite:" + resolvedDb;
         dev.vatn.core.memory.DatabaseManager dbManager = new dev.vatn.core.memory.DatabaseManager(jdbcUrl);
         for (dev.vatn.api.VSchemaContributor contributor : schemaContributors) {
             dbManager.registerSchemaContributor(contributor);
