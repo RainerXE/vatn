@@ -19,7 +19,7 @@
 10. [Named work queues (VQueueService)](#10-named-work-queues-vqueueservice)
 11. [Durable pub/sub topics (VTopicService)](#11-durable-pubsub-topics-vtopicservice)
 12. [Advisory locks (VResourceLockService)](#12-advisory-locks-vresourcelockservice)
-13. [Persisting data](#13-persisting-data)
+13. [Persisting data](#13-persisting-data) — including DB isolation for apps built on VATN
 14. [Background jobs with the DAG engine](#14-background-jobs-with-the-dag-engine)
 15. [Secrets and configuration](#15-secrets-and-configuration)
 16. [Security: guard policies and trust levels](#16-security-guard-policies-and-trust-levels)
@@ -78,6 +78,8 @@ VNodeRunner.create(8080).start();
 ```
 
 Both are one-liners. The difference is that `VNodeRunner.start()` also boots the plugin registry, OIPC transport, DAG engine, and all platform services simultaneously.
+
+> **Building on VATN?** If your application is a product built *on top of* VATN (rather than a tool shipped as part of the framework), store your database in your own directory rather than the VATN default `~/.vatn/database.db`. See [§13 — Persisting data](#13-persisting-data) for details.
 
 ### Defining routes
 
@@ -956,6 +958,51 @@ private void listTasks(VPersistenceService db, VHttpRequest req, VHttpResponse r
 ```
 
 See [example 02](../examples/02-rest-api/) for a full task manager with CRUD, pagination, and error handling.
+
+### Isolating your application's database from the VATN framework
+
+By default VATN stores everything in `~/.vatn/database.db`. That is the right default for standalone VATN tools, but **if you are building a product on top of VATN** you should keep your data separate so that:
+
+- Other VATN-based applications on the same machine are not affected by your schema changes.
+- Your migrations and the VATN framework migrations cannot collide.
+- Your application data (user settings, sessions, secrets) does not leak into the VATN framework store.
+
+Call `withDbPath(Path)` on the runner before `start()`. The parent directory is created automatically.
+
+```java
+// ~/.myapp/myapp.db — completely isolated from ~/.vatn/database.db
+VNodeRunner.create(8080)
+    .withDbPath(Paths.get(System.getProperty("user.home"), ".myapp", "myapp.db"))
+    .addPlugin(new MyPlugin())
+    .start();
+```
+
+**Keep the path decision in one place.** If every CLI command calls `VNodeRunner.create(0)` independently, they will each need the path — and you will eventually drift. The clean pattern is a single static factory method:
+
+```java
+public class MyApp {
+
+    /** Canonical DB for this application — never ~/.vatn/database.db. */
+    public static final Path DB_PATH =
+            Paths.get(System.getProperty("user.home"), ".myapp", "myapp.db");
+
+    /** All entry points call this instead of VNodeRunner.create() directly. */
+    public static VNodeRunner createRunner() {
+        return VNodeRunner.create(0).withDbPath(DB_PATH);
+    }
+}
+```
+
+```java
+// Any command
+VNodeRunner runner = MyApp.createRunner();
+runner.addPlugin(new MyPlugin());
+runner.start();
+```
+
+With this pattern, moving the database path later (e.g. to respect `XDG_DATA_HOME` on Linux) is a one-line change.
+
+**Scope of `withDbPath`:** the path is used by `VPersistenceService` and every service that shares the same pool (`VClockService`, `VResourceLockService`, `VQueueService`, `VTopicService`, and any `VSchemaContributor` your plugins register). Node identity (`~/.vatn/identity.pem`) and the master secrets key (`~/.vatn/.master_key`) are separate files — those are controlled by the `identityPath` factory parameter and the `VATN_MASTER_KEY` environment variable respectively.
 
 ---
 

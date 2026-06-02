@@ -41,10 +41,54 @@ VNodeRunner.create(int port, Path pluginPath, Path identityPath)
 | `registerWebSocket(String path, VWsListener)` | Register a WebSocket endpoint (transport-neutral). |
 | `registerService(Class<T>, T)` | Pre-register a system service before `start()`. |
 | `register(String path, VHttpService)` | Mount a `VHttpService` at a path prefix. |
+| `withDbPath(Path)` | Override the default database location (see below). Returns `this` for chaining. Must be called before `start()`. |
 | `start()` | Initialize all plugins, start Helidon, invoke `onReady()` on all plugins. |
 | `stop()` | Stop the server and invoke `onShutdown()` on all plugins. |
 | `getBoundPort()` | Returns the actual bound port (useful when `port=0`). |
 | `getContext()` | Returns the `VNodeContext` after `start()`. |
+
+### Overriding the default database location
+
+By default every `VNodeRunner` stores its SQLite database at `~/.vatn/database.db`. This is intentional for standalone VATN tools, but **applications built on top of VATN should use their own, isolated database** to avoid schema conflicts and data leakage with other VATN-based programs on the same machine.
+
+Use `withDbPath(Path)` before calling `start()` to redirect persistence to any path. The parent directory is created automatically if it does not exist.
+
+```java
+// Application-specific DB — isolated from the VATN framework DB
+Path appDb = Paths.get(System.getProperty("user.home"), ".myapp", "myapp.db");
+
+VNodeRunner.create(8080)
+    .withDbPath(appDb)          // ← single call, before start()
+    .addPlugin(new MyPlugin())
+    .start();
+```
+
+**Pattern for multi-user applications** — centralise the decision in one factory method so no call site duplicates the path:
+
+```java
+// com.example.MyApp
+public static VNodeRunner createRunner() {
+    return VNodeRunner.create(0)
+            .withDbPath(Paths.get(System.getProperty("user.home"), ".myapp", "myapp.db"));
+}
+
+// Every command / entry point
+VNodeRunner runner = MyApp.createRunner();
+runner.addPlugin(new MyPlugin());
+runner.start();
+```
+
+This keeps the DB path decision in exactly one place. If you later need to move the database — e.g. to `XDG_DATA_HOME` on Linux — you change one line.
+
+**What `withDbPath` affects:**
+- `VPersistenceService` (all plugin tables, schemas, and migrations)
+- `VClockService`, `VResourceLockService`, `VQueueService`, `VTopicService` (all use the same pool)
+- Any `VSchemaContributor` registered by your plugins
+
+**What it does NOT affect:**
+- `~/.vatn/identity.pem` — node identity (override with the `identityPath` factory parameter)
+- `~/.vatn/.master_key` — secrets encryption key (override with `VATN_MASTER_KEY` env var)
+- `~/.vatn/blobs/` — blob store cache location
 
 ---
 
