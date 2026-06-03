@@ -5,6 +5,7 @@ import dev.vatn.api.VTopicEvent;
 import dev.vatn.api.VTopicService;
 import dev.vatn.api.VTopicSubscription;
 import dev.vatn.core.memory.DatabaseManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,6 +35,11 @@ class VTopicTest {
         db = new DatabaseManager(jdbcUrl);
         db.registerSchemaContributor(new VatnMessagingSchemaContributor());
         topicService = new VTopicServiceImpl(db);
+    }
+
+    @AfterEach
+    void tearDown() {
+        db.close(); // checkpoint + WAL→DELETE so JUnit @TempDir cleanup can delete the dir
     }
 
     @Test

@@ -17,7 +17,7 @@ import dev.vatn.api.VSchemaContributor;
  * Context-aware Database Manager for VATN.
  * Implements VPersistenceService to provide pluggable storage to the node.
  */
-public class DatabaseManager implements VPersistenceService {
+public class DatabaseManager implements VPersistenceService, AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     private final SQLiteDataSource dataSource;
     private final String url;
@@ -89,5 +89,31 @@ public class DatabaseManager implements VPersistenceService {
 
     public javax.sql.DataSource getDataSource() {
         return dataSource;
+    }
+
+    /**
+     * Checkpoints and removes the SQLite WAL/SHM sidecar files, then closes
+     * the data source. Safe to call multiple times. Must be called in tests
+     * (via {@code @AfterEach}) so JUnit's {@code @TempDir} cleanup can delete
+     * the database directory without hitting locked WAL files.
+     */
+    @Override
+    public void close() {
+        try (Connection conn = dataSource.getConnection();
+             Statement s = conn.createStatement()) {
+            s.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+            s.execute("PRAGMA journal_mode=DELETE");
+        } catch (SQLException e) {
+            logger.debug("[DB] WAL checkpoint on close failed: {}", e.getMessage());
+        }
+        // Explicitly remove any lingering WAL/SHM sidecar files. SQLite normally
+        // removes them when journal_mode switches to DELETE, but on macOS the
+        // SQLite JDBC driver can briefly recreate them — deleting here guarantees
+        // they are gone before JUnit's @TempDir cleanup scans the directory.
+        if (url.startsWith("jdbc:sqlite:")) {
+            String path = url.substring("jdbc:sqlite:".length());
+            try { java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(path + "-wal")); } catch (java.io.IOException ignored) {}
+            try { java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(path + "-shm")); } catch (java.io.IOException ignored) {}
+        }
     }
 }

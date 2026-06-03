@@ -15,14 +15,18 @@ class VPoolManagerTest {
 
     @TempDir Path tempDir;
     private VPoolManagerImpl poolManager;
+    private DatabaseManager db;
 
     @BeforeEach
     void setUp() throws Exception {
         String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("pools.db").toAbsolutePath();
-        DatabaseManager db = new DatabaseManager(jdbcUrl);
+        db = new DatabaseManager(jdbcUrl);
         db.registerSchemaContributor(new VatnWorkflowSchemaContributor());
         poolManager = new VPoolManagerImpl(db);
     }
+
+    @AfterEach
+    void tearDown() { db.close(); }
 
     @Test
     void defaultPool_hasAvailableSlot() {

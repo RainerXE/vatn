@@ -46,6 +46,7 @@ class VNamedQueueTest {
 
     @AfterEach
     void tearDown() {
+        db.close(); // checkpoint + WAL→DELETE so JUnit @TempDir cleanup can delete the dir
     }
 
     @Test

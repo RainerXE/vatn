@@ -3,6 +3,7 @@ package dev.vatn.core;
 import dev.vatn.api.VLock;
 import dev.vatn.api.VResourceLockService;
 import dev.vatn.core.memory.DatabaseManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,6 +29,9 @@ class VResourceLockRaiiTest {
         db = new DatabaseManager(jdbcUrl);
         locks = new VResourceLockServiceImpl(db);
     }
+
+    @AfterEach
+    void tearDown() { db.close(); }
 
     @Test
     void tryAcquire_successWhenFree() {

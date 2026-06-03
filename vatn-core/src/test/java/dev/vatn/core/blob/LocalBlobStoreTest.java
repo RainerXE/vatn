@@ -2,6 +2,7 @@ package dev.vatn.core.blob;
 
 import dev.vatn.api.VBlobStore;
 import dev.vatn.core.memory.DatabaseManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,13 +17,17 @@ class LocalBlobStoreTest {
 
     @TempDir Path tempDir;
     private LocalBlobStore store;
+    private DatabaseManager db;
 
     @BeforeEach
     void setUp() {
-        DatabaseManager db = new DatabaseManager("jdbc:sqlite:" + tempDir.resolve("test.db").toAbsolutePath());
+        db = new DatabaseManager("jdbc:sqlite:" + tempDir.resolve("test.db").toAbsolutePath());
         db.registerSchemaContributor(new VatnBlobSchemaContributor());
         store = new LocalBlobStore(db, tempDir.resolve("blobs"));
     }
+
+    @AfterEach
+    void tearDown() { db.close(); }
 
     @Test
     void contentAddressedPutDedupesAndReads() throws Exception {

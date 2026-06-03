@@ -4,6 +4,7 @@ import dev.vatn.api.replication.VChange;
 import dev.vatn.api.replication.VConflictResolver;
 import dev.vatn.api.replication.VReplicationConfig;
 import dev.vatn.core.memory.DatabaseManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,6 +26,9 @@ class VReplicatedSetImplTest {
         db = new DatabaseManager("jdbc:sqlite:" + tempDir.resolve("test.db").toAbsolutePath());
         db.registerSchemaContributor(new VatnReplicationSchemaContributor());
     }
+
+    @AfterEach
+    void tearDown() { db.close(); }
 
     private VReplicatedSetImpl set(String node) {
         return new VReplicatedSetImpl(VReplicationConfig.of("library"), node, db, () -> {});
