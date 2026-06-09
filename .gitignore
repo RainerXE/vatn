@@ -1,4 +1,5 @@
 target/
-plans/
+# plans/ is a symlink into the central private plans repo — match dir, file, and symlink
+/plans
 .claude/
 agents.md
