@@ -39,6 +39,21 @@ public interface VProcessService extends VService {
     }
 
     /**
+     * Starts a command asynchronously with sandboxing and an explicit env-var grant list.
+     *
+     * <p>{@code envGrants} names caller-supplied {@code env} keys that must survive the
+     * implementation's environment isolation policy (e.g. {@code ShellEnvPolicy} secret-pattern
+     * excludes). The policy still governs everything inherited from the parent environment;
+     * only the explicitly granted, explicitly named keys are exempt. Implementations that do
+     * not support grants fall back to the policy-only behaviour (grants are dropped — the
+     * fail-safe direction).
+     */
+    default VProcessHandle startAsync(List<String> command, Map<String, String> env, String workingDir,
+                                      VTrustLevel trustLevel, java.util.Set<String> envGrants) throws IOException {
+        return startAsync(command, env, workingDir, trustLevel);
+    }
+
+    /**
      * Data object for process execution results.
      */
     record VProcessResult(int exitCode, String stdout, String stderr) {}

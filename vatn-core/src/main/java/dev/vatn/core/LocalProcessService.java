@@ -86,8 +86,15 @@ public class LocalProcessService implements VProcessService {
     @Override
     public VProcessHandle startAsync(List<String> command, Map<String, String> env, String workingDir, VTrustLevel trustLevel)
             throws IOException {
+        return startAsync(command, env, workingDir, trustLevel, java.util.Set.of());
+    }
 
-        ProcessBuilder pb = buildProcess(command, env, workingDir, trustLevel);
+    @Override
+    public VProcessHandle startAsync(List<String> command, Map<String, String> env, String workingDir,
+                                     VTrustLevel trustLevel, java.util.Set<String> envGrants)
+            throws IOException {
+
+        ProcessBuilder pb = buildProcess(command, env, workingDir, trustLevel, envGrants);
         Process process = pb.start();
         return new VProcessHandle(
                 process.pid(),
@@ -112,6 +119,14 @@ public class LocalProcessService implements VProcessService {
                                         Map<String, String> env,
                                         String workingDir,
                                         VTrustLevel trustLevel) {
+        return buildProcess(command, env, workingDir, trustLevel, java.util.Set.of());
+    }
+
+    private ProcessBuilder buildProcess(List<String> command,
+                                        Map<String, String> env,
+                                        String workingDir,
+                                        VTrustLevel trustLevel,
+                                        java.util.Set<String> envGrants) {
         List<String> wrappedCommand = OsSandboxWrapper.wrapCommand(command, trustLevel);
         ProcessBuilder pb = new ProcessBuilder(wrappedCommand);
 
@@ -126,6 +141,18 @@ public class LocalProcessService implements VProcessService {
 
         // 2. Apply isolation policy (filters pb.environment() in-place)
         policy.applyTo(pb.environment());
+
+        // 3. Re-add granted caller-supplied keys the policy stripped. Grants only
+        //    exempt explicitly named caller env entries — inherited vars stay governed
+        //    by the policy.
+        if (envGrants != null && env != null) {
+            for (String key : envGrants) {
+                String value = env.get(key);
+                if (value != null) {
+                    pb.environment().put(key, value);
+                }
+            }
+        }
 
         return pb;
     }
