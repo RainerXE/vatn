@@ -54,6 +54,23 @@ public interface VProcessService extends VService {
     }
 
     /**
+     * Runs a trusted, read-only command for capability/version detection, <em>without</em> the
+     * OS-native sandbox wrapper.
+     *
+     * <p>OS sandboxing (e.g. macOS {@code sandbox-exec}) is designed to constrain untrusted
+     * plugin code, but it also blocks legitimate inspection tools that need broad read access —
+     * {@code swift}/{@code xcrun}, {@code brew}, etc. fail or return nothing under it. This
+     * method is intended for first-party scanners (DevEnv, Doctor) probing a fixed allow-list of
+     * well-known binaries (e.g. {@code <tool> --version}); it does not take untrusted input and
+     * performs no writes. The environment-isolation policy still applies (secrets are stripped).
+     *
+     * <p>Default implementation: {@code execute(command, Map.of(), null, VTrustLevel.FULL)}.
+     */
+    default VProcessResult probe(List<String> command) throws IOException {
+        return execute(command, Map.of(), null, VTrustLevel.FULL);
+    }
+
+    /**
      * Data object for process execution results.
      */
     record VProcessResult(int exitCode, String stdout, String stderr) {}
