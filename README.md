@@ -1,8 +1,8 @@
-# VATN — Virtual Application Transaction Node
+# VATN — Runtime for Personal Services
 
-**A high-performance, plugin-native JVM runtime for building distributed applications and agentic systems.**
+**A high-performance, plugin-native JVM runtime for building and running personal services — HTTP APIs, workflow pipelines, container management, scheduled jobs, and more — on your own hardware.**
 
-VATN gives you the developer ergonomics of Node.js — one-liner server start, drop-in plugins, built-in pub/sub — but runs on the JVM with Java 25 virtual threads, delivering throughput comparable to Go or Rust while shipping a full production stack out of the box: HTTP, WebSocket, DAG workflows, distributed tracing, secrets, cryptographic identity, and LAN federation.
+VATN gives you the developer ergonomics of Node.js — one-liner server start, drop-in plugins, built-in pub/sub — but runs on the JVM with Java 25 virtual threads, delivering throughput comparable to Go or Rust while shipping a full production stack out of the box: HTTP, WebSocket, DAG workflows, distributed tracing, secrets, cryptographic identity, and an integrated web admin interface.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -31,16 +31,11 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
 | Outbound HTTP | axios / node-fetch | RestTemplate / WebClient | **`VHttpClient` — resilient: retry/backoff, ETag/TTL cache, per-host circuit breaker** |
 | Periodic scheduler | node-cron / Agenda | `@Scheduled` | **`VScheduler` — cron or fixed-interval, skip-on-overlap, virtual-thread dispatch** |
 | Blob / content store | multer + S3 SDK | Spring Content | **`VBlobStore` — CAS (sha256), streaming, range reads, pin/evict; S3 backend via plugin** |
-| Cross-node RPC | HTTP calls + discovery | Spring Cloud OpenFeign | **`VRpcService` — typed request/response over OIPC/VMessaging, correlation + timeout** |
-| Data sync / replication | custom + CRDTs | Hazelcast / Infinispan | **`VReplicationService` — change-feed, per-peer watermarks, LWW/custom conflict resolution, partial replication** |
-| Full-text search | elasticsearch client | Spring Data + Lucene | **`vatn-plugin-fts` — SQLite FTS5, BM25, snippets, no infrastructure** |
 | Secrets | dotenv / Vault SDK | Spring Vault | **`VSecretService` — AES-256-GCM, filesystem-backed, vault-ready SPI** |
-| Node identity | None | None | **Ed25519 key pair per node, sign/verify data** |
-| Federation | None | None | **UDP LAN discovery (v1); full lattice mesh (v2)** |
+| Web admin interface | None | Spring Boot Admin | **`vatn-webadmin` — ZimaOS-style glassmorphic dashboard, runs as a background daemon** |
+| Container management | Portainer (separate) | None | **`vatn-plugin-containers` — Docker/Podman/Distrobox GUI + xterm shell terminals** |
 | GraalVM native image | No | Optional | **First-class — `vatn_node_start()` C ABI** |
 | Language interop | N-API (C) | JNI | **OIPC v2.12 — language-agnostic binary protocol over UDS/TCP** |
-
-> **On queues and topics without a broker:** The work-queue and durable-topic design was inspired by [honker](https://github.com/russellromney/honker) — the idea that if SQLite is already your primary store, the message queue and event stream should live in the same file. This eliminates the dual-write problem between business tables and a separate broker, and removes an entire infrastructure component from your stack.
 
 ---
 
@@ -68,8 +63,8 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
  └──────────────┬───────────────────────────────────────────────────────┘
                 │  loaded into
  ┌──────────────▼───────────────────────────────────────────────────────┐
- │             Your plugins  /  vatn-plugin-*                           │
- │   your own VNodePlugin impls  ·  vatn-plugins ecosystem              │
+ │             plugins/vatn-plugin-*  ·  vatn-webadmin                 │
+ │   your own VNodePlugin impls  ·  official plugin ecosystem           │
  └──────────────────────────────────────────────────────────────────────┘
 
  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
@@ -82,67 +77,72 @@ VATN gives you the developer ergonomics of Node.js — one-liner server start, d
 
 ---
 
+## Repository Layout (Monorepo)
+
+Everything lives in a single Maven reactor — one `mvn clean install -DskipTests` builds the entire stack.
+
+```
+vatn/
+├── vatn-api/                   ← SPI interfaces & annotations (zero runtime deps)
+├── vatn-bom/                   ← Bill of Materials
+├── vatn-spec/                  ← Manifest & plugin-spec models
+├── vatn-core/                  ← Helidon 4 SE node engine
+├── vatn-cli/                   ← CLI entry point (picocli)
+├── vatn-verify/                ← Integration & verification tests
+├── vatn-test/                  ← Shared test harness
+├── vatn-bench/                 ← JMH benchmarks + load-test scripts
+├── vatn-webadmin/              ← Web Admin (bundled daemon — see below)
+│
+├── plugins/                    ← Official plugin suite (24 plugins)
+│   ├── vatn-plugin-admin/
+│   ├── vatn-plugin-auth/
+│   ├── vatn-plugin-containers/
+│   ├── vatn-plugin-devenv/
+│   └── ... (20 more)
+│
+└── examples/                   ← 12 runnable examples
+    ├── 01-hello-world/
+    ├── 04-dag-etl-pipeline/
+    ├── 12-task-queue/
+    └── ...
+```
+
+---
+
 ## Installation
 
-The fastest way to get VATN running — one command installs the CLI, GraalVM (optional), and your chosen plugins.
-
-### Linux / macOS
+One command installs the VATN CLI, Web Admin daemon, and your chosen plugins:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RainerXE/vatn/main/install.sh -o install.sh && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/RainerXE/vatn/main/install.sh | bash
 ```
 
-### Windows (PowerShell — run as Administrator)
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force
-irm https://raw.githubusercontent.com/RainerXE/vatn/main/install.ps1 | iex
-```
-
-### What the installer does
-
-1. Detects your current Java installation (Java 21+ required)
-2. Offers to install **GraalVM** via SDKMAN / winget (Oracle GraalVM or CE — your choice)
-3. Asks where to install (default `~/.vatn`)
-4. Presents a plugin selection menu — recommended defaults pre-selected, `all` available
-5. Downloads `vatn-cli.jar` and selected plugin JARs from the latest GitHub Release
-6. Creates a `vatn` launcher on your PATH with an auto-discovered plugin classpath
-7. Writes a default `vatn.conf` configuration file
-8. **Optionally clones the source repos** into a development folder so you can build your own plugins or contribute to the runtime
-
-### Installed layout
+The installer presents a component selection menu — all four components are enabled by default:
 
 ```
-~/.vatn/
-├── bin/vatn            ← the vatn command (added to PATH)
-├── lib/vatn-cli.jar    ← runtime fat-JAR
-├── plugins/            ← drop plugin JARs here; all auto-loaded at startup
-├── config/
-│   └── vatn.conf       ← node configuration
-└── logs/
+  ━━  Component selection  ━━
+
+  [1] VATN Core Runtime  — CLI, node engine, DAG, queues, scheduler
+    Install VATN Core? [Y/n]:
+
+  [2] VATN Web Admin  — browser-based admin & container GUI (background service)
+      Installs as a launchd / systemd daemon, starts automatically
+    Install VATN Web Admin? [Y/n]:
+
+  [3] Plugins  — auth, CORS, Swagger, metrics, postgres, redis, WASM, and more
+    Install Plugins? [Y/n]:
+
+  [4] Examples  — runnable Maven projects showing core VATN concepts
+    Clone Examples? [Y/n]:
 ```
-
-### After installation
-
-```bash
-source ~/.zshrc           # (or ~/.bashrc; open a new terminal on Windows)
-
-vatn --version            # VATN Runtime 1.0.0
-vatn init my-project      # scaffold a new plugin project
-cd my-project
-vatn run                  # starts node on :8080
-```
-
-Open `http://localhost:8080/vatn/admin` for the admin dashboard (set `VATN_ADMIN_TOKEN` first).
 
 ### Non-interactive / CI install
-
-Override prompts with environment variables:
 
 ```bash
 VATN_INSTALL_DIR=~/.vatn \
 VATN_JAVA=graal \
-VATN_PLUGINS=cors,auth,swagger,admin,postgres \
+VATN_COMPONENTS=core,webadmin,plugins \
+VATN_PLUGINS=cors,auth,swagger,postgres \
   bash <(curl -fsSL https://raw.githubusercontent.com/RainerXE/vatn/main/install.sh)
 ```
 
@@ -150,316 +150,175 @@ VATN_PLUGINS=cors,auth,swagger,admin,postgres \
 |----------|--------|---------|
 | `VATN_INSTALL_DIR` | any path | `~/.vatn` |
 | `VATN_JAVA` | `graal` / `graalce` / `skip` | interactive |
-| `VATN_PLUGINS` | comma list, `recommended`, `all` | interactive |
+| `VATN_COMPONENTS` | `all` or comma-list of `core,webadmin,plugins,examples` | `all` |
+| `VATN_PLUGINS` | comma-list, `recommended`, `all` | `recommended` |
 
-### Plugins
+### Installed layout
 
-The full plugin catalog — auth, postgres, redis, openai, slack, WASM, TerminalPhone, and more — lives in **[vatn-plugins →](https://github.com/RainerXE/vatn-plugins)**.
-
----
-
-## Building your first plugin
-
-A step-by-step walkthrough with code, Node.js analogies, DAG workflows, security, and deployment is in **[vatn-plugins — Quick Start →](https://github.com/RainerXE/vatn-plugins#quick-start--first-plugin-in-5-minutes)**.
-
----
-
-## Build from Source
-
-If the installer offered to clone the source repos, your repos are already in your development folder.  
-Otherwise, clone them manually:
-
-```bash
-git clone https://github.com/RainerXE/vatn.git
-git clone https://github.com/RainerXE/vatn-plugins.git   # optional — drop-in plugins
-git clone https://github.com/RainerXE/vatn-demo.git      # optional — examples & tutorials
+```
+~/.vatn/
+├── bin/
+│   ├── vatn              ← VATN CLI (added to PATH)
+│   └── vatn-webadmin     ← Web Admin daemon binary / launcher
+├── lib/
+│   ├── vatn-cli.jar
+│   └── vatn-webadmin.jar
+├── plugins/              ← drop plugin JARs here; auto-loaded at startup
+├── config/
+│   └── vatn.conf
+└── logs/
+    ├── webadmin.out.log
+    └── webadmin.err.log
 ```
 
-### Prerequisites
-
-- Java 25+ — GraalVM 25 recommended (`sdk install java 25.0.2-graal` via SDKMAN)
-- Maven 3.9+
-
-### Build the runtime
+### After installation
 
 ```bash
-cd vatn
-mvn clean install -DskipTests
-# → vatn-api/target/vatn-api-1.0-SNAPSHOT.jar   (SPI — depend on this in your plugins)
-# → vatn-core/target/vatn-core-1.0-SNAPSHOT.jar  (runtime — never depend on this directly)
-# → vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar    (fat JAR — use as the vatn launcher)
-```
+source ~/.zshrc          # reload shell (or open a new terminal)
 
-### Build plugins
-
-```bash
-cd vatn-plugins
-mvn clean install -DskipTests
-# → vatn-plugin-*/target/vatn-plugin-*.jar
-```
-
-### Deploy your build to the local installation
-
-```bash
-cp vatn/vatn-cli/target/vatn-cli-*.jar ~/.vatn/lib/vatn-cli.jar
-cp vatn-plugins/vatn-plugin-*/target/vatn-plugin-*.jar ~/.vatn/plugins/
-```
-
-### Build modes
-
-All three modes require GraalVM 25 (install once via SDKMAN):
-
-```bash
-sdk install java 25.0.2-graal
-sdk use java 25.0.2-graal
-```
-
-**JVM + Project Leyden AOT cache** (~116 ms cold start)
-
-```bash
-mvn package verify -Pleyden -pl vatn-cli -am -DskipTests
-java -XX:AOTCache=vatn-cli/target/vatn.aot \
-     -jar vatn-cli/target/vatn-cli-1.0-SNAPSHOT.jar --help
-```
-
-**GraalVM native image** (~24 ms cold start, no JVM required)
-
-```bash
-mvn clean package -Pnative -pl vatn-cli -am -DskipTests
-./vatn-cli/target/vatn --version   # VATN Runtime 1.0.0
-```
-
-| Mode | Cold start | JVM required | Distribution |
-|------|-----------|--------------|--------------|
-| JVM plain | ~144 ms | Yes (Java 25) | JAR (22 MB) |
-| JVM + Leyden AOT | ~116 ms | Yes (same JVM) | JAR + cache (37 MB) |
-| Native image | ~24 ms | No | Binary (113 MB) |
-
-> **Plugin model in native mode:** Dynamic JAR loading is disabled in native image. Plugins ship compiled-in (Path A) or as separate OIPC processes (Path B). See [docs/dev-guide.md § Native image](docs/dev-guide.md#19-native-image).
-
-### Run the hello-world example
-
-```bash
-cd vatn/examples/01-hello-world
-mvn package -DskipTests
-java -jar target/01-hello-world-1.0-SNAPSHOT.jar
-# → http://localhost:8080/hello
+vatn --version           # VATN Runtime 1.0.0
+vatn init my-project     # scaffold a new plugin project
+cd my-project
+vatn run                 # starts node on :8080
 ```
 
 ---
 
-## Process Sandbox
+## VATN Web Admin
 
-VATN provides a layered sandboxing stack that any application plugin can use. The entire stack sits in `vatn-core`; your plugin only sees `vatn-api` interfaces.
+`vatn-webadmin` is the official browser-based administration interface for VATN. It bundles the core runtime with three plugins and runs as a background daemon — starting automatically on login.
 
-### Architecture
+### Features
+
+| Section | What you get |
+|---------|-------------|
+| **Admin Dashboard** | JVM heap & thread stats, loaded plugins, DAG workload monitor, system health |
+| **Containers** | List and manage Docker, Podman, and Distrobox containers with start/stop/shell access |
+| **Web Terminal** | Full xterm.js terminal directly into any running container via WebSocket |
+
+### Access
+
+After installation:
 
 ```
-Plugin code
-    │  ctx.getService(VSandboxProvider.class).exec("odin check .", 30)
-    ▼
-VSandboxProvider (vatn-api SPI)
-    │  default impl: LocalSandbox (your app, implements the SPI)
-    │  calls VGuardService.evaluateToolCall() first
-    │  reads VatnSecurity.CURRENT_TRUST_LEVEL (ScopedValue)
-    ▼
-VProcessService.execute(cmd, env, dir, trustLevel)   (vatn-api SPI)
-    │  impl: LocalProcessService (vatn-core)
-    │
-    ├─► ShellEnvPolicy.applyTo(pb.environment())     env isolation
-    │       reads [sandbox.shell_env] from .vatn/vatn.toml
-    │       default: inherit=core + exclude secret patterns
-    │
-    └─► OsSandboxWrapper.wrapCommand(cmd, trustLevel) OS sandboxing
-            macOS  → sandbox-exec -p "(deny file-write*)(deny network*)"
-            Linux  → bwrap --ro-bind / / --unshare-all / --share-net
-            FULL   → no wrapper (command runs as-is)
-    ▼
-VSubprocessAuditService.record(entry)                audit
-    registered by VNodeRunner; queryable via getAll() / getForSession()
+Admin Dashboard  →  http://localhost:8080/vatn/admin
+Containers GUI   →  http://localhost:8080/vatn/containers
 ```
 
-### Trust Levels
+### Environment Variables
 
-| `VTrustLevel` | macOS sandbox | Linux sandbox | Use case |
-|---|---|---|---|
-| `FULL` | none | none | Trusted internal tools |
-| `RESTRICTED` | deny file-write | ro-bind + share-net | Semi-trusted tools (network allowed) |
-| `SANDBOXED` | deny file-write + deny network | ro-bind + unshare-all | Untrusted or user-supplied commands |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8080` | HTTP port |
+| `VATN_ADMIN_USER` | `admin` | Login username |
+| `VATN_ADMIN_PASS` | `vatnadmin` | Login password — **change in production** |
+| `VATN_JWT_SECRET` | dev placeholder | JWT signing secret — **must be 32+ chars in production** |
 
-`VatnSecurity.CURRENT_TRUST_LEVEL` is a Java `ScopedValue` — set it before dispatching to a tool and it propagates automatically to `VProcessService`.
+### Service management
 
-### Environment isolation (`ShellEnvPolicy`)
-
-Configure in `.vatn/vatn.toml`:
-
-```toml
-[sandbox.shell_env]
-inherit  = "core"                          # all | core | none
-exclude  = ["AWS_*", "*_KEY", "*_TOKEN", "ANTHROPIC_*", "OPENAI_*"]
-set      = { CI = "true" }                 # always present, overrides existing
+**macOS** (launchd):
+```bash
+launchctl stop dev.vatn.webadmin       # stop
+launchctl start dev.vatn.webadmin      # start
+launchctl unload ~/Library/LaunchAgents/dev.vatn.webadmin.plist  # uninstall
 ```
 
-| `inherit` | Behaviour |
-|---|---|
-| `core` | Keep only safe vars: `PATH`, `HOME`, `JAVA_HOME`, `LANG`, `TMPDIR`, `CI`, … |
-| `all` | Keep full parent env, then apply `exclude` patterns |
-| `none` | Empty env — only keys from `set` are present |
+**Linux** (systemd):
+```bash
+systemctl --user stop vatn-webadmin    # stop
+systemctl --user start vatn-webadmin   # start
+systemctl --user disable vatn-webadmin # uninstall from autostart
+```
 
-If `.vatn/vatn.toml` is absent or has no `[sandbox.shell_env]` section, the safe default is used: `inherit = "core"` with standard secret patterns excluded.
+### Build & run locally
 
-### Using `VSandboxProvider` in your plugin
+```bash
+# from the monorepo root
+mvn clean install -pl vatn-webadmin --also-make -DskipTests
+
+# run directly
+java -jar vatn-webadmin/target/vatn-webadmin-1.0-alpha.14.jar
+
+# build native binary (requires GraalVM)
+mvn clean package -Pnative -pl vatn-webadmin --also-make -DskipTests
+./vatn-webadmin/target/vatn-webadmin
+```
+
+---
+
+## Plugins
+
+VATN's plugin system allows any capability to be dropped in as a JAR. All official plugins live in `plugins/` and compile alongside the runtime in the same reactor.
+
+### Official Plugin Catalog
+
+| Plugin | Description |
+|--------|-------------|
+| `vatn-plugin-admin` | Admin dashboard — heap stats, threads, DAG monitor, workload registry |
+| `vatn-plugin-auth` | JWT + API-key bearer authentication |
+| `vatn-plugin-containers` | Container GUI — Docker/Podman/Distrobox management + xterm.js web terminals |
+| `vatn-plugin-cors` | CORS filter for browser-accessible APIs |
+| `vatn-plugin-security` | CSRF protection, rate limiting, security headers |
+| `vatn-plugin-swagger` | OpenAPI / Swagger UI at `/api/docs` |
+| `vatn-plugin-bcrypt` | BCrypt password hashing service |
+| `vatn-plugin-postgres` | PostgreSQL connection pool (HikariCP) |
+| `vatn-plugin-redis` | Redis client (Jedis) |
+| `vatn-plugin-mongodb` | MongoDB driver integration |
+| `vatn-plugin-openai` | OpenAI / Claude / local LLM client |
+| `vatn-plugin-metrics` | Prometheus `/metrics` endpoint (Micrometer) |
+| `vatn-plugin-email` | SMTP email via Jakarta Mail |
+| `vatn-plugin-slack` | Slack webhook + Events API |
+| `vatn-plugin-s3` | AWS S3 / compatible object storage |
+| `vatn-plugin-wasm` | WebAssembly execution via Chicory (no native deps) |
+| `vatn-plugin-devenv` | Developer environment scanner — runtimes, LLMs, containers, editors |
+| `vatn-plugin-fts` | Full-text search (SQLite FTS5, BM25 ranking, snippets) |
+| `vatn-plugin-python` | Python runtime bridge |
+| `vatn-plugin-node` | Node.js runtime bridge |
+| `vatn-plugin-comm` | Communication hub — Telegram, Signal, RCS |
+| `vatn-plugin-activitypub` | ActivityPub / Fediverse federation |
+| `vatn-plugin-terminalphone` | Encrypted audio terminal over Tor |
+| `vatn-plugin-mongodb` | MongoDB driver integration |
+
+### Writing your own plugin
 
 ```java
 public class MyPlugin implements VNodePlugin {
+
     @Override
     public void onInitialize(VNodeContext ctx) {
+        // Register an HTTP service
+        ctx.route("GET", "/hello", (req, res) ->
+            res.send("Hello from MyPlugin!"));
 
-        // Execute a command with the default (FULL) trust level
-        VSandboxProvider sandbox = ctx.getService(VSandboxProvider.class).orElseThrow();
-        String output = sandbox.exec("odin check .", 30);
-
-        // Execute with restricted trust (propagated to LocalProcessService)
-        ScopedValue.where(VatnSecurity.CURRENT_TRUST_LEVEL, VTrustLevel.SANDBOXED)
-            .run(() -> {
-                String result = sandbox.exec("user-supplied-command", 10);
-                // process result
-            });
+        // Register a scheduled job
+        ctx.getService(VScheduler.class).ifPresent(s ->
+            s.every("my-job", Duration.ofMinutes(5), this::doWork));
     }
+
+    private void doWork() { /* ... */ }
 }
 ```
 
-### Querying the audit log
+Build against `vatn-api` only — never depend on `vatn-core` directly:
 
-Every call that reaches `VSandboxProvider` (and any plugin that writes to `VSubprocessAuditService` directly) is logged in memory:
-
-```java
-VSubprocessAuditService audit = ctx.getService(VSubprocessAuditService.class).orElseThrow();
-
-// All entries
-List<VSubprocessAuditEntry> all = audit.getAll();
-
-// Per-session
-List<VSubprocessAuditEntry> forSession = audit.getForSession(sessionId);
-
-// JSON — for a REST handler
-res.sendJson(audit.toJsonArray());
+```xml
+<dependency>
+    <groupId>dev.vatn</groupId>
+    <artifactId>vatn-api</artifactId>
+    <version>1.0-alpha.14</version>
+</dependency>
 ```
 
-Each `VSubprocessAuditEntry` carries: `sessionId`, `command`, `exitCode`, `durationMs`, `timestamp`.
-
-The default implementation is in-memory only (resets on node restart). To persist across restarts, register your own database-backed implementation before `VNodeRunner.start()`:
-
-```java
-VNodeRunner runner = VNodeRunner.create(8080);
-runner.registerService(VSubprocessAuditService.class, new MyDbAuditService(dataSource));
-runner.addPlugin(new MyPlugin());
-runner.start();
-```
-
-### Providing a custom `VSandboxProvider`
-
-The default `VSandboxProvider` is whatever your application registers. If you don't register one, `ctx.getService(VSandboxProvider.class)` returns empty. Register your implementation in `onInitialize`:
-
-```java
-ctx.registerService(VSandboxProvider.class, new MyCustomSandbox(ctx));
-```
+A full step-by-step guide is in **[docs/dev-guide.md](docs/dev-guide.md)**.
 
 ---
 
-## Project Modules
+## Examples
 
-### `vatn-api` — The SPI (Start here)
-
-Zero external dependencies. Every interface your plugin ever touches lives here. You compile your plugin against `vatn-api` only; the runtime (`vatn-core`) is provided by the node.
-
-Key surfaces:
-
-| Interface | Purpose |
-|-----------|---------|
-| `VNodePlugin` | Implement this; `onInitialize(ctx)` wires your services |
-| `VNodeContext` | Entry point to every service: `ctx.getMessaging()`, `ctx.getService(VDagEngine.class)`, … |
-| `VHttpService` / `VHttpRoutes` | Declare REST endpoints and WebSocket handlers |
-| `VHttpFilter` / `VFilterChain` | Per-request middleware chain — auth, CORS, security headers, tracing |
-| `VMessaging` | In-process ephemeral pub/sub; same API as cross-node OIPC in v2 |
-| `VDagEngine` / `VDagRegistry` | Define and trigger DAG workflows |
-| `VQueueService` / `VNamedQueue` | Named work queues — claim/ack, priority, DLQ, delayed jobs, atomic enqueue |
-| `VTopicService` / `VTopic` | Durable pub/sub topics — per-consumer offsets, replay, seek, pause/resume |
-| `VResourceLockService` / `VLock` | Advisory TTL locks — `tryAcquire` / `acquire` returning RAII `VLock` handles |
-| `VRateLimiter` | Token-bucket rate limiter — inbound routes and outbound upstreams; per-second **or** arbitrary-window quotas (`configure(key, 1000, Duration.ofDays(1))`); blocking `acquire` + `millisUntilAvailable` for outbound callers |
-| `VHttpClient` | Outbound HTTP SPI — `RetryPolicy` (exponential backoff, jitter, `Retry-After`), `CachePolicy` (ETag/TTL), `CircuitBreakerPolicy` (per-host); response carries headers for conditional revalidation |
-| `VScheduler` | Lightweight periodic scheduler — 5-field cron (`cron(name, expr, task)`) or fixed interval (`every(name, Duration, task)`), skip-on-overlap, decoupled from the DAG engine |
-| `VBlobStore` | Content/blob-store SPI — content-addressing (`putContent` → `"sha256:<hex>"`), streaming, byte-range reads (`openRange(key, offset, length)`), pin/evict local cache; runtime default is a local CAS under `~/.vatn/blobs`; `vatn-plugin-s3` provides an S3 backend |
-| `VRpcService` | Application-level cross-node RPC over `VMessaging` — typed request/response with correlation IDs, timeout, and error propagation; today in-process, federated under Lattice v2 |
-| `VReplicationService` | Index sync / replication primitive — change-feed, per-peer watermarks, pluggable `VConflictResolver` (default: last-writer-wins), `VReplicationFilter` for partial replication |
-| `VGuardService` | Intercept input, output, and tool calls for PII / SSRF filtering |
-| `VSecretService` | Store and retrieve encrypted secrets |
-| `VNodeIdentity` | Sign and verify data with the node's Ed25519 key |
-| `VDiscovery` / `VNameResolver` | LAN peer discovery (v1) and name resolution |
-| `VTracingService` | Distributed tracing (noop by default; OTLP via `VATN_OTLP_ENDPOINT`) |
-| `VSandboxProvider` | Execute shell commands inside the node's security sandbox — guard-checked, OS-isolated, audit-logged |
-| `VSubprocessAuditService` / `VSubprocessAuditEntry` | Append-only log of every subprocess execution: sessionId, command, exitCode, durationMs, timestamp |
-| `VWasmRuntime` / `VWasmModule` | Load and execute `.wasm` modules — interpreter or native-compile backends |
-| `workflow.*` | Full DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom`, `VPool`, `VEventLog`, `VDagScheduler` |
-| `replication.*` | Replication model: `VChange`, `VConflictResolver`, `VReplicationFilter`, `VReplicationConfig`, `VReplicatedSet` |
-| `security.*` | `VFirewall`, `VFlowPolicy`, `VPolicyInterjector`, `VTrustLevel`, `VSecretService` |
-
-### `vatn-core` — The Runtime Engine
-
-The Helidon 4 SE–powered implementation of every `vatn-api` interface. You never depend on this in your plugin — it is the runtime that runs your plugin.
-
-Notable internals:
-
-- **`VNodeRunner`** — one-liner bootstrap; wires HTTP router, plugin lifecycle, DAG engine, messaging services, OIPC transport, and all platform services
-- **`VDagEngineImpl`** — Airflow-style task graph execution on virtual threads; SQLite persistence; crash-safe replay via `VEventLog`
-- **`VQueueServiceImpl`** — named work queues backed by `vatn_named_queue_jobs`; visibility-timeout sweeper on a background virtual thread; supports DLQ forwarding and atomic enqueue on a caller-supplied connection
-- **`VTopicServiceImpl`** — durable pub/sub backed by `vatn_topic_events` + per-consumer `vatn_topic_offsets`; offset auto-saved every 1000 events or 1 second; consumers resume from their saved position on restart
-- **`VResourceLockServiceImpl`** — SQLite-backed TTL advisory locks; `tryAcquire` / `acquire` return `VLock` RAII handles that release on `close()`
-- **`VTokenBucketRateLimiter`** — lazy-refill token bucket with nanosecond precision; supports per-second limits and arbitrary-window quotas (e.g. 1 000 permits/day); `acquire` blocks a virtual thread; `millisUntilAvailable` returns a backoff hint
-- **`VResilientHttpClient`** — retry-with-backoff decorator over `JavaVHttpClientImpl`; per-key retry policy (exponential + jitter + `Retry-After`), ETag/TTL response cache (LRU, max 1 024 entries), and per-host circuit breaker (CLOSED / HALF_OPEN / OPEN); registered as the default `VHttpClient`; rate-limit-bound to respect outbound upstream quotas automatically
-- **`VSchedulerImpl`** — virtual-thread-backed periodic scheduler; 5-field cron via `CronEvaluator` (reusable class shared with the DAG scheduler); fixed-interval alternative; skip-on-overlap guarantee; registered as `VScheduler`
-- **`LocalBlobStore`** — content-addressed local blob cache under `~/.vatn/blobs`; SHA-256 keyed, deduplicating, byte-range reads, LRU eviction of unpinned blobs; registered as `VBlobStore` (overridden by `vatn-plugin-s3` when that plugin is loaded)
-- **`VRpcServiceImpl`** — request/response RPC over `VMessaging`; length-prefixed binary framing with correlation IDs; per-call timeout watchdog on a virtual thread; server-side dispatch on virtual threads; registered as `VRpcService`
-- **`VReplicationServiceImpl`** — change-feed pull/push over `VRpcService`; per-peer watermarks in `vatn_repl_watermark`; Lamport-clock versioning; pluggable `VConflictResolver`; `VReplicationFilter` for partial replication (per-peer key-space sharding)
-- **`OipcMessagingTransport`** — OIPC v2.12 binary protocol over Unix Domain Sockets (TCP fallback); full HELLO handshake; async virtual-thread accept loop
-- **`VNativeBridge`** — GraalVM `@CEntryPoint` C ABI; exposes `vatn_node_start`, `vatn_node_stop`, `vatn_call`, `vatn_get_diagnostics`
-- **`VRegistry`** — PF4J-based plugin loader with Ed25519 JAR signature verification; trust-level assignment (SANDBOXED → RESTRICTED → FULL)
-- **`LocalProcessService`** — `VProcessService` impl that applies `ShellEnvPolicy` (env isolation) and `OsSandboxWrapper` (OS-native sandboxing) before every subprocess spawn
-- **`OsSandboxWrapper`** — wraps commands with OS-native sandbox tools based on `VTrustLevel`: `sandbox-exec` on macOS, `bwrap` on Linux
-- **`VSubprocessAuditServiceImpl`** — in-memory audit log; registered automatically by `VNodeRunner`; replace with a DB-backed impl if you need persistence across restarts
-
-### `vatn-cli` — Developer Toolbelt
-
-```
-vatn run   [--port N] [--plugins <path>]   Start a VATN node
-vatn init  [--lang java|python] <name>     Scaffold a new plugin project
-vatn test  [--path <plugin-dir>]           Run the test harness against a plugin
-vatn info                                  Print node info and loaded services
-vatn registry                              Manage remote plugin registries
-vatn oipc-benchmark                        Run the OIPC wire-level latency benchmark
-```
-
-Built with Picocli; produces a single fat JAR. A GraalVM native binary is the intended distribution format.
-
-### `vatn-bench` — Benchmarks
-
-JMH micro-benchmarks and external load-test scripts:
-
-| Benchmark | What it measures |
-|-----------|-----------------|
-| `WorkflowDagBench` | DAG trigger latency, fan-out throughput, XCom pipeline, crash-resume overhead |
-| `JsonBench` | Jackson parse/stringify throughput, VJson query |
-| `HttpServerBench` | In-process HTTP handler throughput |
-| `bench/http/run.sh` | External wrk load against a live VATN node |
-| `bench/workflow/run.sh` | DAG throughput vs Windmill / Prefect / Airflow |
-| `bench/report/generate.sh` | Aggregate all results into a dated Markdown report |
-
-### `examples/` — Working Examples
-
-Eleven runnable projects, each a self-contained Maven module:
+Twelve runnable projects in `examples/` — each a self-contained Maven module:
 
 | # | Example | Concepts covered |
-|---|---------|-----------------|
+|---|---------|--------------------|
 | [01](examples/01-hello-world/) | Hello World | Minimal plugin, single GET endpoint |
 | [02](examples/02-rest-api/) | REST API (Task Manager) | CRUD, path params, JSON, SQLite persistence |
 | [03](examples/03-websocket-chat/) | WebSocket Chat | Real-time bi-directional messaging, broadcast |
@@ -471,42 +330,96 @@ Eleven runnable projects, each a self-contained Maven module:
 | [09](examples/09%20polyglot-ffi/) | Polyglot FFI | Java + C + Odin via Java 25 Panama (FFM) |
 | [10](examples/10%20python-plugin/) | Python Plugin | Raw Python OIPC socket plugin |
 | [11](examples/11-custom-guard/) | Custom Guard | PII redaction, keyword filtering, SSRF blocking |
+| [12](examples/12-task-queue/) | Task Queue | Bull.js job-queue port — DAG as a crash-safe work queue |
 
-### `vatn-test` — Plugin Test Harness
+### Run an example
 
-Standalone harness for black-box testing a VATN plugin. Boots a minimal node, loads the plugin under test, runs assertions against its HTTP surface and messaging output. Suitable for CI without mocking the runtime.
+```bash
+cd examples/04-dag-etl-pipeline
+mvn package -DskipTests
+java -jar target/04-dag-etl-pipeline-1.0-SNAPSHOT.jar
+```
 
-### `vatn-spec` — Protocol Specifications
-
-- `OIPC-212-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" wire protocol: 18-byte V3 binary header, HELLO handshake, VOipcMessageType opcode table, shutdown RELAXED/STRICT, trust-level enforcement, policy resolution
-
-### `vatn-verify` — Protocol Verification Tools
-
-Standalone tools for verifying OIPC wire compliance: byte-level frame inspection, handshake validation, and message-type conformance checks. Used by CI and plugin authors to validate custom OIPC implementations.
-
-### `docs/` — Documentation
-
-| Document | Contents |
-|----------|---------|
-| [dev-guide.md](docs/dev-guide.md) | **Start here.** Beginner's guide — install, build, first plugin, HTTP, DAG, security. Analogies to Node.js throughout. |
-| [oipc-protocol.md](docs/oipc-protocol.md) | OIPC v2.12 binary wire spec — header layout, opcodes, HELLO handshake, lifecycle channels |
-| [vatn-architecture.md](docs/vatn-architecture.md) | VATN/Applications boundary, repo layout, dev workflow |
+See **[examples/README.md](examples/README.md)** for a full walkthrough of each example.
 
 ---
 
-## OIPC Protocol
+## Build from Source
 
-VATN nodes communicate over **OIPC (Octet IPC) v2.12 "Relentless"** — a lightweight binary/JSON protocol over Unix Domain Sockets (TCP fallback). The Java `VNodePlugin` SPI abstracts OIPC entirely; you only need it directly to write plugins in Python, Rust, or C.
+```bash
+git clone https://github.com/RainerXE/vatn.git
+cd vatn
 
-Wire format: 18-byte V3 header (`0x4F` magic, version, opcode, flags, length) + payload. Full spec: [docs/oipc-protocol.md](docs/oipc-protocol.md).
+# Build everything (core + all plugins + web admin + examples)
+mvn clean install -DskipTests
+
+# Build only core + CLI
+mvn clean install -pl vatn-api,vatn-core,vatn-cli --also-make -DskipTests
+
+# Build only plugins
+mvn clean compile -f plugins/pom.xml -DskipTests
+
+# Build Web Admin only
+mvn clean package -pl vatn-webadmin --also-make -DskipTests
+```
+
+### Prerequisites
+
+- Java 25+ — GraalVM 25 recommended (`sdk install java 25.0.2-graal` via SDKMAN)
+- Maven 3.9+
+
+### Build modes
+
+```bash
+# JVM + Leyden AOT cache (~116 ms cold start)
+mvn package verify -Pleyden -pl vatn-cli -am -DskipTests
+
+# GraalVM native image (~24 ms cold start, no JVM required)
+mvn clean package -Pnative -pl vatn-cli -am -DskipTests
+./vatn-cli/target/vatn --version
+
+# Web Admin native binary
+mvn clean package -Pnative -pl vatn-webadmin -am -DskipTests
+./vatn-webadmin/target/vatn-webadmin
+```
+
+| Mode | Cold start | JVM required | Distribution |
+|------|-----------|--------------|--------------|
+| JVM plain | ~144 ms | Yes (Java 25) | JAR (22 MB) |
+| JVM + Leyden AOT | ~116 ms | Yes (same JVM) | JAR + cache (37 MB) |
+| Native image | ~24 ms | No | Binary (113 MB) |
 
 ---
 
-## Federation (v1 now, v2 roadmap)
+## Process Sandbox
 
-Every VATN node runs `VUdpDiscovery` at startup: it joins the `224.0.0.251:7719` multicast group and announces itself every 5 seconds. `VDiscovery` and `VNameResolver` are live services — nodes on the same LAN find each other automatically.
+VATN provides a layered sandboxing stack that any plugin can use. The entire stack sits in `vatn-core`; your plugin only sees `vatn-api` interfaces.
 
-**v2 (VATN Lattice)** upgrades this to production-grade federation: cryptographic node bonding, encrypted cross-node channels, federated DAG execution with `nodeAffinity`, distributed `VMessaging` across nodes, and a gossip-based mesh. Your plugin code does not change — `VNodeContext` is the same interface.
+```
+Plugin code
+    │  ctx.getService(VSandboxProvider.class).exec("odin check .", 30)
+    ▼
+VSandboxProvider (vatn-api SPI)
+    │  calls VGuardService.evaluateToolCall() first
+    │  reads VatnSecurity.CURRENT_TRUST_LEVEL (ScopedValue)
+    ▼
+VProcessService.execute(cmd, env, dir, trustLevel)
+    │
+    ├─► ShellEnvPolicy.applyTo(pb.environment())      env isolation
+    └─► OsSandboxWrapper.wrapCommand(cmd, trustLevel)  OS sandboxing
+            macOS  → sandbox-exec -p "(deny file-write*)(deny network*)"
+            Linux  → bwrap --ro-bind / / --unshare-all / --share-net
+    ▼
+VSubprocessAuditService.record(entry)                 audit log
+```
+
+### Trust Levels
+
+| `VTrustLevel` | macOS sandbox | Linux sandbox | Use case |
+|---|---|---|---|
+| `FULL` | none | none | Trusted internal tools |
+| `RESTRICTED` | deny file-write | ro-bind + share-net | Semi-trusted tools (network allowed) |
+| `SANDBOXED` | deny file-write + deny network | ro-bind + unshare-all | Untrusted or user-supplied commands |
 
 ---
 
@@ -534,6 +447,91 @@ DAG engine latency (JMH, warm JVM):
 
 ---
 
+## Project Modules
+
+### `vatn-api` — The SPI (Start here)
+
+Zero external dependencies. Every interface your plugin ever touches lives here.
+
+| Interface | Purpose |
+|-----------|---------| 
+| `VNodePlugin` | Implement this; `onInitialize(ctx)` wires your services |
+| `VNodeContext` | Entry point to every service |
+| `VHttpService` / `VHttpRoutes` | REST endpoints and WebSocket handlers |
+| `VMessaging` | In-process pub/sub (same API as cross-node OIPC) |
+| `VDagEngine` / `VDagRegistry` | DAG workflow engine |
+| `VQueueService` | Named work queues — claim/ack, DLQ, delayed jobs |
+| `VTopicService` | Durable pub/sub — per-consumer offsets, replay |
+| `VResourceLockService` | Advisory TTL locks |
+| `VRateLimiter` | Token-bucket rate limiter |
+| `VHttpClient` | Resilient outbound HTTP — retry, cache, circuit breaker |
+| `VScheduler` | Cron / fixed-interval scheduler |
+| `VBlobStore` | Content-addressed blob store |
+| `VSecretService` | Encrypted secret storage |
+| `VNodeIdentity` | Ed25519 node key pair, sign/verify |
+| `VDiscovery` | LAN peer discovery |
+| `VSandboxProvider` | OS-sandboxed subprocess execution |
+| `VWasmRuntime` | Load and execute `.wasm` modules |
+| `VWorkloadRegistry` | Global view of running DAG jobs, processes, containers |
+| `workflow.*` | DAG model: `VDag`, `VDagTask`, `VOperator`, `VXCom` |
+
+### `vatn-core` — The Runtime Engine
+
+Helidon 4 SE–powered implementation of every `vatn-api` interface.
+
+### `vatn-cli` — Developer Toolbelt
+
+```
+vatn run   [--port N] [--plugins <path>]   Start a VATN node
+vatn init  [--lang java|python] <name>     Scaffold a new plugin project
+vatn test  [--path <plugin-dir>]           Run the test harness against a plugin
+vatn info                                  Print node info and loaded services
+vatn registry                              Manage plugin registries
+vatn oipc-benchmark                        OIPC wire-level latency benchmark
+```
+
+### `vatn-webadmin` — Web Admin Interface
+
+Standalone bundled node combining Auth, Admin, and Containers plugins. Produces a fat JAR and a GraalVM native binary. Installs as a launchd / systemd user daemon.
+
+### `plugins/` — Official Plugin Suite
+
+24 drop-in plugins covering auth, databases, storage, messaging, WASM, containers, LLM clients, and more. See the [Plugin Catalog](#official-plugin-catalog) above.
+
+### `examples/` — Runnable Examples
+
+12 self-contained Maven projects covering the full feature surface. See [examples/README.md](examples/README.md).
+
+### `vatn-bench` — Benchmarks
+
+JMH micro-benchmarks and external load-test scripts (`bench/http/`, `bench/workflow/`, `bench/report/`).
+
+### `vatn-spec` — Protocol Specifications
+
+`OIPC-212-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" binary wire protocol.
+
+### `vatn-verify` — Protocol Verification
+
+Standalone tools for verifying OIPC wire compliance: byte-level frame inspection, handshake validation.
+
+### `docs/` — Documentation
+
+| Document | Contents |
+|----------|---------| 
+| [dev-guide.md](docs/dev-guide.md) | **Start here.** Beginner's guide — install, build, first plugin, HTTP, DAG, security |
+| [oipc-protocol.md](docs/oipc-protocol.md) | OIPC v2.12 binary wire spec |
+| [vatn-architecture.md](docs/vatn-architecture.md) | Architecture and repo layout |
+
+---
+
+## OIPC Protocol
+
+VATN nodes communicate over **OIPC (Octet IPC) v2.12 "Relentless"** — a lightweight binary/JSON protocol over Unix Domain Sockets (TCP fallback). You only need it directly to write plugins in Python, Rust, or C.
+
+Wire format: 18-byte V3 header (`0x4F` magic, version, opcode, flags, length) + payload. Full spec: [docs/oipc-protocol.md](docs/oipc-protocol.md).
+
+---
+
 ## Documentation Index
 
 | | |
@@ -544,16 +542,6 @@ DAG engine latency (JMH, warm JVM):
 | **Architecture** | [docs/vatn-architecture.md](docs/vatn-architecture.md) |
 | **API source** | `vatn-api/src/main/java/dev/vatn/api/` |
 | **Benchmarks** | `vatn-bench/bench/` |
-| **Plugin catalog** | [vatn-plugins →](https://github.com/RainerXE/vatn-plugins) |
-
----
-
-## Ecosystem
-
-| Repository | Purpose |
-|------------|---------|
-| [vatn-plugins](https://github.com/RainerXE/vatn-plugins) | Drop-in plugins — auth, postgres, redis, openai, WASM, Tor/voice, and more |
-| [vatn-demo](https://github.com/RainerXE/vatn-demo) | Ports of well-known systems (Bull.js, Celery, Express, …) to VATN with migration tutorials |
 
 ---
 
@@ -587,33 +575,27 @@ SOFTWARE.
 
 ### Third-Party Dependencies
 
-VATN bundles or depends on the following open-source libraries. All are permissively
-licensed and compatible with the MIT License.
-
 #### Runtime dependencies
 
 | Library | Version | License | Used in |
-|---------|---------|---------|---------|
-| [Eclipse Helidon SE](https://helidon.io/) | 4.4.1 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | HTTP, WebSocket, SSE, tracing (`vatn-core`) |
-| [Jackson Databind](https://github.com/FasterXML/jackson-databind) | 2.16.1 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | JSON serialisation (`vatn-core`) |
-| [PF4J](https://pf4j.org/) | 3.9.0 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Plugin loader and lifecycle (`vatn-core`, plugins) |
-| [Picocli](https://picocli.info/) | 4.7.5 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | CLI command framework (`vatn-cli`) |
-| [SLF4J](https://www.slf4j.org/) | 2.0.9 | [MIT](https://opensource.org/licenses/MIT) | Logging facade and simple backend (all modules) |
-| [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) | 3.45.1.0 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Embedded persistence (`vatn-core`) |
-| [PostgreSQL JDBC](https://jdbc.postgresql.org/) | 42.7.2 | [BSD 2-Clause](https://opensource.org/licenses/BSD-2-Clause) | Optional Postgres backend (`vatn-core`) |
-| [Flyway Community](https://flywaydb.org/) | 10.8.1 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Database schema migrations (`vatn-core`) |
-| [GraalVM SDK](https://www.graalvm.org/) | 24.1.1 | [UPL 1.0](https://opensource.org/licenses/UPL) | Native image C ABI (`vatn-core`, compile-time) |
+|---------|---------|---------|---------| 
+| [Eclipse Helidon SE](https://helidon.io/) | 4.4.1 | Apache 2.0 | HTTP, WebSocket, SSE (`vatn-core`) |
+| [Jackson Databind](https://github.com/FasterXML/jackson-databind) | 2.16.1 | Apache 2.0 | JSON serialisation |
+| [PF4J](https://pf4j.org/) | 3.9.0 | Apache 2.0 | Plugin loader and lifecycle |
+| [Picocli](https://picocli.info/) | 4.7.5 | Apache 2.0 | CLI framework (`vatn-cli`) |
+| [SLF4J](https://www.slf4j.org/) | 2.0.9 | MIT | Logging facade |
+| [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) | 3.45.1.0 | Apache 2.0 | Embedded persistence |
+| [Chicory](https://github.com/dylibso/chicory) | 1.7.5 | Apache 2.0 | WASM runtime (`vatn-plugin-wasm`) |
+| [GraalVM SDK](https://www.graalvm.org/) | 24.1.1 | UPL 1.0 | Native image C ABI (compile-time) |
 
 #### Test and benchmark dependencies
 
 | Library | Version | License | Used in |
-|---------|---------|---------|---------|
-| [JUnit Jupiter](https://junit.org/junit5/) | 5.10.0 | [EPL 2.0](https://opensource.org/licenses/EPL-2.0) | Unit and integration tests |
-| [Awaitility](https://github.com/awaitility/awaitility) | 4.2.1 | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Async test assertions |
-| [JMH](https://github.com/openjdk/jmh) | 1.37 | [GPL v2 + Classpath Exception](https://openjdk.org/legal/gplv2+ce.html) | Micro-benchmarks (`vatn-bench`) |
+|---------|---------|---------|---------| 
+| [JUnit Jupiter](https://junit.org/junit5/) | 5.10.0 | EPL 2.0 | Unit and integration tests |
+| [Awaitility](https://github.com/awaitility/awaitility) | 4.2.1 | Apache 2.0 | Async test assertions |
+| [JMH](https://github.com/openjdk/jmh) | 1.37 | GPL v2 + Classpath Exception | Micro-benchmarks (`vatn-bench`) |
 
-> **Note on JMH**: JMH is licensed under GPL v2 with the Classpath Exception, which permits
-> use as a tool dependency without GPL propagation to application code. It is used exclusively
-> in `vatn-bench` and is never shipped as part of the VATN runtime.
+> **Note on JMH**: Used exclusively in `vatn-bench` and never shipped as part of the runtime.
 
 ---
