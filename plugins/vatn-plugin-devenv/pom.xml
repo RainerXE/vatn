@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.12</version>
+    </parent>
+
+    <artifactId>vatn-plugin-devenv</artifactId>
+    <name>VATN Plugin — DevEnv</name>
+    <description>Developer-environment inventory: language runtimes, compilers, version/package
+        managers, Python venvs, container runtimes, kubernetes, coding agents, MCP servers,
+        local LLM engines/models, and the Apple platform layer. (M1: runtimes + compilers.)</description>
+
+    <dependencies>
+        <!-- Provided by the host node at runtime -->
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

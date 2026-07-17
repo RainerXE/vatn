@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VATN — Python Runtime</title>
+<style>
+  :root { --bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#7d8590;
+          --green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font:14px/1.5 'SF Mono',monospace; padding:24px; }
+  h1 { font-size:20px; margin-bottom:4px; color:var(--blue); }
+  .subtitle { color:var(--muted); margin-bottom:24px; font-size:12px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .card h2 { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+  .stat { font-size:24px; font-weight:700; color:var(--text); }
+  .stat-label { font-size:11px; color:var(--muted); margin-top:2px; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+       padding:8px 10px; border-bottom:1px solid var(--border); }
+  td { padding:8px 10px; border-bottom:1px solid var(--border); font-size:13px; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(255,255,255,.03); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .badge-green  { background:rgba(63,185,80,.15);  color:var(--green); }
+  .badge-red    { background:rgba(248,81,73,.15);  color:var(--red); }
+  .badge-yellow { background:rgba(210,153,34,.15); color:var(--yellow); }
+  .badge-muted  { background:rgba(125,133,144,.15);color:var(--muted); }
+  .btn { background:var(--surface); border:1px solid var(--border); color:var(--text);
+         padding:4px 10px; border-radius:6px; cursor:pointer; font:12px monospace;
+         transition:border-color .15s; }
+  .btn:hover { border-color:var(--blue); }
+  .btn-red:hover { border-color:var(--red); color:var(--red); }
+  .section { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+             padding:16px; margin-bottom:16px; }
+  .section h2 { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+                margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  .log-box { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:12px;
+             font-size:11px; line-height:1.6; height:200px; overflow-y:auto; white-space:pre-wrap;
+             color:#adbac7; margin-top:8px; }
+  .empty { color:var(--muted); font-size:12px; padding:8px 0; }
+  input[type=text] { background:var(--bg); border:1px solid var(--border); color:var(--text);
+                     padding:4px 10px; border-radius:6px; font:12px monospace; width:200px; }
+  input[type=text]:focus { outline:none; border-color:var(--blue); }
+  .row { display:flex; gap:8px; align-items:center; margin-top:8px; }
+  #status-bar { font-size:11px; color:var(--muted); margin-bottom:16px; }
+  .check-ok  { color:var(--green); }
+  .check-warn{ color:var(--yellow); }
+  .disk-bar-wrap { background:var(--border); border-radius:4px; height:6px; margin:6px 0 2px; }
+  .disk-bar { height:6px; border-radius:4px; background:var(--green); transition:width .3s; }
+  .disk-bar.warn { background:var(--yellow); }
+  .disk-bar.crit { background:var(--red); }
+  .disk-row { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); }
+  .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .field-label { font-size:11px; color:var(--muted); margin-bottom:4px; }
+  input.path-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+                     padding:6px 10px; border-radius:6px; font:12px monospace; box-sizing:border-box; }
+  input.path-input:focus { outline:none; border-color:var(--blue); }
+  .restart-note { font-size:11px; color:var(--yellow); margin-top:8px; }
+  .save-ok { font-size:11px; color:var(--green); margin-top:8px; display:none; }
+</style>
+</head>
+<body>
+<h1>🐍 Python Runtime</h1>
+<div class="subtitle">VATN Python Plugin — Pinokio-compatible process manager</div>
+<div id="status-bar">Loading…</div>
+
+<div class="grid" id="stats-grid">
+  <div class="card"><div class="stat" id="stat-version">—</div><div class="stat-label">Python version</div></div>
+  <div class="card"><div class="stat" id="stat-uv">—</div><div class="stat-label">Package installer</div></div>
+  <div class="card"><div class="stat" id="stat-envs">0</div><div class="stat-label">Virtual environments</div></div>
+  <div class="card"><div class="stat" id="stat-procs">0</div><div class="stat-label">Running processes</div></div>
+</div>
+
+<div class="section">
+  <h2>Virtual Environments
+    <span>
+      <input type="text" id="new-env-name" placeholder="env name">
+      <button class="btn" onclick="createEnv()">Create venv</button>
+    </span>
+  </h2>
+  <table><thead><tr><th>Name</th><th>Path</th><th></th></tr></thead>
+  <tbody id="envs-table"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
+</div>
+
+<div class="section">
+  <h2>Apps
+    <span><button class="btn" onclick="loadApps()">Refresh</button></span>
+  </h2>
+  <table><thead><tr><th>Name</th><th>Script</th><th>Processes</th><th></th></tr></thead>
+  <tbody id="apps-table"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table>
+</div>
+
+<div class="section">
+  <h2>Running Processes
+    <span><button class="btn" onclick="loadProcesses()">Refresh</button></span>
+  </h2>
+  <table>
+    <thead><tr><th>ID</th><th>App</th><th>Status</th><th>PID</th><th>Restarts</th><th>Started</th><th></th></tr></thead>
+    <tbody id="procs-table"><tr><td colspan="7" class="empty">No processes running</td></tr></tbody>
+  </table>
+</div>
+
+<!-- ── Settings ──────────────────────────────────────────────────────── -->
+<div class="section" id="settings-section">
+  <h2>⚙ Storage &amp; Configuration
+    <button class="btn" onclick="loadConfig()">Refresh</button>
+  </h2>
+
+  <div class="settings-grid">
+    <!-- Disk usage cards -->
+    <div>
+      <div class="field-label">Venvs directory — disk usage</div>
+      <div id="envs-path" style="font-size:11px;color:var(--muted);margin-bottom:6px">—</div>
+      <div class="disk-bar-wrap"><div class="disk-bar" id="envs-bar" style="width:0%"></div></div>
+      <div class="disk-row"><span id="envs-used">—</span><span id="envs-free">— free</span></div>
+    </div>
+    <div>
+      <div class="field-label">Apps directory — disk usage</div>
+      <div id="apps-path-display" style="font-size:11px;color:var(--muted);margin-bottom:6px">—</div>
+      <div class="disk-bar-wrap"><div class="disk-bar" id="apps-bar" style="width:0%"></div></div>
+      <div class="disk-row"><span id="apps-used">—</span><span id="cfg-free">— free</span></div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Change paths below and click Save. Changes are written to <code style="color:var(--blue)">.vatn/vatn.toml</code>
+      and take effect after VATN restarts.
+    </div>
+    <div class="settings-grid">
+      <div>
+        <div class="field-label">envs_dir — virtual environments root</div>
+        <input class="path-input" id="cfg-envs-dir" type="text" placeholder="/data/vatn/python/envs">
+      </div>
+      <div>
+        <div class="field-label">apps_dir — app definitions root</div>
+        <input class="path-input" id="cfg-apps-dir" type="text" placeholder="/data/vatn/python/apps">
+      </div>
+      <div>
+        <div class="field-label">python_binary</div>
+        <input class="path-input" id="cfg-python-binary" type="text" placeholder="python3">
+      </div>
+      <div>
+        <div class="field-label">prefer_uv (true / false)</div>
+        <input class="path-input" id="cfg-prefer-uv" type="text" placeholder="true">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="saveConfig()" style="padding:6px 16px">💾 Save to vatn.toml</button>
+      <span class="restart-note" id="cfg-restart-note" style="display:none">⚠ Restart VATN to apply</span>
+      <span class="save-ok" id="cfg-save-ok">✅ Saved</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="log-section" style="display:none">
+  <h2 id="log-title">Logs — <span id="log-proc-id">—</span>
+    <button class="btn" onclick="closeLogs()">✕ Close</button>
+  </h2>
+  <div class="log-box" id="log-box"></div>
+</div>
+
+<script>
+const BASE = '/python';
+let logProcId = null, logInterval = null;
+
+async function api(path, method='GET', body) {
+  const r = await fetch(BASE + path, {
+    method, headers:{'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return r.json();
+}
+
+function badge(status) {
+  const map = { running:'green', stopped:'muted', crashed:'red', stopping:'yellow', starting:'yellow' };
+  return `<span class="badge badge-${map[status]||'muted'}">${status}</span>`;
+}
+
+async function loadStatus() {
+  const d = await api('/status');
+  document.getElementById('stat-version').textContent = d.version || 'not found';
+  document.getElementById('stat-version').style.color = d.healthy ? 'var(--green)' : 'var(--red)';
+  document.getElementById('stat-uv').textContent = d.uv || 'pip';
+  document.getElementById('stat-envs').textContent = d.envCount || 0;
+  document.getElementById('stat-procs').textContent = d.processCount || 0;
+
+  const parts = [];
+  parts.push(`<span class="${d.healthy?'check-ok':'check-warn'}">${d.healthy?'✅':'⚠️'} ${d.version}</span>`);
+  parts.push(d.uv !== 'not found' ? `<span class="check-ok">✅ uv ${d.uv}</span>` : '<span class="check-warn">⚠️ uv not found (using pip)</span>');
+  parts.push(d.conda !== 'not found' ? `<span class="check-ok">✅ conda</span>` : '<span style="color:var(--muted)">○ conda not available</span>');
+  if (d.appleSilicon) {
+    const mlxOk = d.mlx && d.mlx !== 'not installed' && d.mlx !== 'n/a';
+    parts.push(mlxOk
+      ? `<span class="check-ok" title="MLX inference + LoRA fine-tuning available">🍎 MLX ${d.mlx}</span>`
+      : `<span class="check-warn" title="Apple Silicon detected — run: uv pip install mlx-lm">🍎 MLX not installed</span>`);
+  }
+  document.getElementById('status-bar').innerHTML = parts.join(' &nbsp;·&nbsp; ');
+}
+
+async function loadEnvs() {
+  const d = await api('/envs');
+  const tbody = document.getElementById('envs-table');
+  if (!d.envs || d.envs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">No virtual environments yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.envs.map(e => `
+    <tr>
+      <td><strong>${e.name}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${e.path}</td>
+      <td><button class="btn btn-red" onclick="deleteEnv('${e.name}')">Delete</button></td>
+    </tr>`).join('');
+}
+
+async function createEnv() {
+  const name = document.getElementById('new-env-name').value.trim();
+  if (!name) return alert('Enter a venv name');
+  try {
+    await api('/envs/' + name, 'POST');
+    document.getElementById('new-env-name').value = '';
+    await loadAll();
+  } catch(e) { alert('Failed: ' + e.message); }
+}
+
+async function deleteEnv(name) {
+  if (!confirm('Delete venv "' + name + '"?')) return;
+  await api('/envs/' + name, 'DELETE');
+  await loadAll();
+}
+
+async function loadApps() {
+  const d = await api('/apps');
+  const tbody = document.getElementById('apps-table');
+  if (!d.apps || d.apps.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No apps found in .vatn/python/apps/</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.apps.map(a => `
+    <tr>
+      <td><strong>${a.name}</strong></td>
+      <td>${a.hasScript ? '<span class="badge badge-green">pinokio.json</span>' : '<span class="badge badge-muted">no script</span>'}</td>
+      <td>${a.runningProcesses} running</td>
+      <td>
+        ${a.hasScript ? `<button class="btn" onclick="runApp('${a.name}')">▶ Run</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+async function runApp(name) {
+  try {
+    const r = await api('/apps/' + name + '/run', 'POST', {});
+    alert('Script completed: ' + r.status + '\nSteps run: ' + r.stepsRun +
+          (r.daemonProcessIds?.length ? '\nDaemons: ' + r.daemonProcessIds.join(', ') : ''));
+    await loadAll();
+  } catch(e) { alert('Run failed: ' + e.message); }
+}
+
+async function loadProcesses() {
+  const d = await api('/processes');
+  const tbody = document.getElementById('procs-table');
+  if (!d.processes || d.processes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No processes running</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.processes.map(p => `
+    <tr>
+      <td style="font-size:11px;color:var(--muted)">${p.id}</td>
+      <td>${p.appId}</td>
+      <td>${badge(p.status)}</td>
+      <td style="color:var(--muted)">${p.pid > 0 ? p.pid : '—'}</td>
+      <td>${p.restartCount}</td>
+      <td style="font-size:11px;color:var(--muted)">${p.startedAt ? p.startedAt.substring(0,19).replace('T',' ') : '—'}</td>
+      <td>
+        <button class="btn" onclick="showLogs('${p.id}')">Logs</button>
+        ${p.status === 'running' ? `<button class="btn btn-red" onclick="stopProcess('${p.id}')">Stop</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+async function stopProcess(id) {
+  await api('/processes/' + id + '/stop', 'POST');
+  await loadProcesses();
+}
+
+function showLogs(id) {
+  logProcId = id;
+  document.getElementById('log-section').style.display = 'block';
+  document.getElementById('log-proc-id').textContent = id;
+  clearInterval(logInterval);
+  refreshLogs();
+  logInterval = setInterval(refreshLogs, 2000);
+  document.getElementById('log-section').scrollIntoView({behavior:'smooth'});
+}
+
+async function refreshLogs() {
+  if (!logProcId) return;
+  const d = await api('/processes/' + logProcId + '/status');
+  const box = document.getElementById('log-box');
+  if (d.logs) {
+    box.textContent = d.logs.join('\n');
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function closeLogs() {
+  clearInterval(logInterval);
+  logProcId = null;
+  document.getElementById('log-section').style.display = 'none';
+}
+
+async function loadConfig() {
+  const d = await api('/config');
+  // paths
+  document.getElementById('envs-path').textContent = d.envsDir || '—';
+  document.getElementById('apps-path-display').textContent = d.appsDir || '—';
+  // pre-fill inputs if empty
+  if (!document.getElementById('cfg-envs-dir').value) document.getElementById('cfg-envs-dir').value = d.envsDir || '';
+  if (!document.getElementById('cfg-apps-dir').value) document.getElementById('cfg-apps-dir').value = d.appsDir || '';
+
+  // disk bars
+  if (d.disk) {
+    const disk = d.disk;
+    const envPct = disk.totalBytes > 0 ? Math.min(100, (disk.envsBytesUsed / disk.totalBytes) * 100) : 0;
+    const envBar = document.getElementById('envs-bar');
+    envBar.style.width = envPct + '%';
+    envBar.className = 'disk-bar' + (envPct > 80 ? ' crit' : envPct > 60 ? ' warn' : '');
+    document.getElementById('envs-used').textContent = disk.envsHuman + ' used';
+    document.getElementById('envs-free').textContent = disk.freeHuman + ' free';
+
+    const appPct = disk.totalBytes > 0 ? Math.min(100, (disk.appsBytesUsed / disk.totalBytes) * 100) : 0;
+    const appBar = document.getElementById('apps-bar');
+    appBar.style.width = Math.max(appPct, 0.5) + '%';
+    document.getElementById('apps-used').textContent = disk.appsHuman + ' used';
+    document.getElementById('cfg-free').textContent  = disk.freeHuman + ' free';
+  }
+}
+
+async function saveConfig() {
+  const body = {};
+  const envsDir = document.getElementById('cfg-envs-dir').value.trim();
+  const appsDir = document.getElementById('cfg-apps-dir').value.trim();
+  const pyBin   = document.getElementById('cfg-python-binary').value.trim();
+  const preferUv = document.getElementById('cfg-prefer-uv').value.trim();
+  if (envsDir) body.envsDir = envsDir;
+  if (appsDir) body.appsDir = appsDir;
+  if (pyBin)   body.pythonBinary = pyBin;
+  if (preferUv) body.preferUv = preferUv;
+
+  try {
+    const r = await api('/config', 'PUT', body);
+    document.getElementById('cfg-restart-note').style.display = 'inline';
+    document.getElementById('cfg-save-ok').style.display = 'inline';
+    setTimeout(() => document.getElementById('cfg-save-ok').style.display = 'none', 3000);
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+
+async function loadAll() {
+  await Promise.all([loadStatus(), loadEnvs(), loadApps(), loadProcesses(), loadConfig()]);
+}
+
+loadAll();
+setInterval(() => Promise.all([loadStatus(), loadProcesses()]), 5000);
+setInterval(loadConfig, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "_description": "Fuse a trained MLX LoRA adapter into the base model for standalone inference.",
+  "_note": "Run this after mlx-finetune-lora.json. The fused model can be used directly by mlx-inference-server.json.",
+
+  "run": [
+    {
+      "method": "shell.run",
+      "params": {
+        "message": "python -m mlx_lm.fuse --model mlx-community/Mistral-7B-Instruct-v0.3-4bit --adapter-path ./adapters/v1 --save-path ./fused-model --de-quantize",
+        "venv": "mlx"
+      }
+    },
+    {
+      "method": "shell.run",
+      "params": {
+        "message": "python -m mlx_lm.server --model ./fused-model --host 127.0.0.1 --port 8080",
+        "venv": "mlx",
+        "daemon": true,
+        "autoRestart": true
+      }
+    }
+  ]
+}

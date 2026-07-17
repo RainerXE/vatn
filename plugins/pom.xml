@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn</groupId>
+        <artifactId>vatn-parent</artifactId>
+        <version>1.0-alpha.14</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <groupId>dev.vatn.plugins</groupId>
+    <artifactId>vatn-plugins-parent</artifactId>
+    <version>1.0-alpha.14</version>
+    <packaging>pom</packaging>
+
+    <name>VATN Plugins Parent</name>
+    <description>Drop-in plugins for the VATN runtime</description>
+
+    <modules>
+        <module>vatn-plugin-auth</module>
+        <module>vatn-plugin-security</module>
+        <module>vatn-plugin-fts</module>
+        <module>vatn-plugin-openai</module>
+        <module>vatn-plugin-metrics</module>
+        <module>vatn-plugin-postgres</module>
+        <module>vatn-plugin-email</module>
+        <module>vatn-plugin-slack</module>
+        <module>vatn-plugin-cors</module>
+        <module>vatn-plugin-bcrypt</module>
+        <module>vatn-plugin-redis</module>
+        <module>vatn-plugin-swagger</module>
+        <module>vatn-plugin-s3</module>
+        <module>vatn-plugin-mongodb</module>
+        <module>vatn-plugin-activitypub</module>
+        <module>vatn-plugin-comm</module>
+        <module>vatn-plugin-admin</module>
+        <module>vatn-plugin-terminalphone</module>
+        <module>vatn-plugin-wasm</module>
+        <module>vatn-plugin-python</module>
+        <module>vatn-plugin-node</module>
+        <module>vatn-plugin-devenv</module>
+        <module>vatn-plugin-containers</module>
+        <module>container-gui-installer</module>
+    </modules>
+
+    <properties>
+        <!-- Chicory WASM runtime — single property to update when a new version ships -->
+        <chicory.version>1.7.5</chicory.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <jackson.version>2.16.1</jackson.version>
+        <slf4j.version>2.0.12</slf4j.version>
+        <micrometer.version>1.12.4</micrometer.version>
+        <hikari.version>5.1.0</hikari.version>
+        <postgresql.version>42.7.3</postgresql.version>
+        <angus-mail.version>2.0.3</angus-mail.version>
+        <bcrypt.version>0.10.2</bcrypt.version>
+        <jedis.version>5.1.0</jedis.version>
+        <awssdk.version>2.25.60</awssdk.version>
+        <mongodb.version>5.1.0</mongodb.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- VATN API -->
+            <dependency>
+                <groupId>dev.vatn</groupId>
+                <artifactId>vatn-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- JJWT -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+
+            <!-- Jackson -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <!-- SLF4J -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <!-- Micrometer Prometheus -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-registry-prometheus</artifactId>
+                <version>${micrometer.version}</version>
+            </dependency>
+
+            <!-- HikariCP connection pool -->
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>${hikari.version}</version>
+            </dependency>
+
+            <!-- PostgreSQL JDBC driver -->
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+            </dependency>
+
+            <!-- Jakarta Mail (Angus reference implementation) -->
+            <dependency>
+                <groupId>org.eclipse.angus</groupId>
+                <artifactId>angus-mail</artifactId>
+                <version>${angus-mail.version}</version>
+            </dependency>
+
+            <!-- BCrypt -->
+            <dependency>
+                <groupId>at.favre.lib</groupId>
+                <artifactId>bcrypt</artifactId>
+                <version>${bcrypt.version}</version>
+            </dependency>
+
+            <!-- Redis (Jedis) -->
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+                <version>${jedis.version}</version>
+            </dependency>
+
+            <!-- AWS SDK S3 -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3</artifactId>
+                <version>${awssdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>url-connection-client</artifactId>
+                <version>${awssdk.version}</version>
+            </dependency>
+
+            <!-- MongoDB -->
+            <dependency>
+                <groupId>org.mongodb</groupId>
+                <artifactId>mongodb-driver-sync</artifactId>
+                <version>${mongodb.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

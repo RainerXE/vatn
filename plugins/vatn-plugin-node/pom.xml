@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.12</version>
+    </parent>
+
+    <artifactId>vatn-plugin-node</artifactId>
+    <packaging>jar</packaging>
+
+    <name>VATN Plugin — Node.js Runtime</name>
+    <description>
+        Sandboxed Node.js process management for VATN nodes.
+        Same run[] script format as vatn-plugin-python. Manages npm environments,
+        installs packages, supervises Node.js daemon processes with auto-restart,
+        streams logs via SSE, and exposes a lightweight admin UI at /node/ui.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

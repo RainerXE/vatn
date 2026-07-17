@@ -1,0 +1,8 @@
+target/
+.claude/
+agents.md
+*.class
+*.jar
+.DS_Store
+.idea/
+*.iml

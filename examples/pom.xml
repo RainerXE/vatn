@@ -20,6 +20,7 @@
         <module>06-scheduled-report</module>
         <module>07-chat-app</module>
         <module>11-custom-guard</module>
+        <module>12-task-queue</module>
     </modules>
 
     <properties>

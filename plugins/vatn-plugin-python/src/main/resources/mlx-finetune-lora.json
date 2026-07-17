@@ -1,0 +1,48 @@
+{
+  "_description": "MLX LoRA fine-tuning — train a local adapter on Apple Silicon via mlx-lm.",
+  "_note": "Requires macOS on Apple Silicon. Data must be JSONL in chat format (train.jsonl, valid.jsonl, test.jsonl).",
+  "_output": "Adapter weights saved to adapter_path. Fuse into model with mlx_lm.fuse for inference.",
+  "_trail_integration": "Feed trail_trace gold examples as train.jsonl to improve domain model quality.",
+
+  "run": [
+    {
+      "method": "shell.run",
+      "params": {
+        "message": "uv pip install 'mlx-lm[server]>=0.21'",
+        "venv": "mlx"
+      }
+    },
+    {
+      "method": "fs.write",
+      "params": {
+        "path": "finetune-config.json",
+        "data": {
+          "base_model":   "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
+          "data_dir":     "./data",
+          "adapter_path": "./adapters/v1",
+          "iters":        1000,
+          "batch_size":   4,
+          "lora_layers":  16,
+          "learning_rate": 1e-4
+        }
+      }
+    },
+    {
+      "method": "shell.run",
+      "params": {
+        "message": "python -m mlx_lm.lora --model mlx-community/Mistral-7B-Instruct-v0.3-4bit --train --data ./data --adapter-path ./adapters/v1 --iters 1000 --batch-size 4 --lora-layers 16 --learning-rate 1e-4",
+        "venv": "mlx",
+        "env": {
+          "TOKENIZERS_PARALLELISM": "false"
+        }
+      }
+    },
+    {
+      "method": "shell.run",
+      "params": {
+        "message": "python -m mlx_lm.lora --model mlx-community/Mistral-7B-Instruct-v0.3-4bit --adapter-path ./adapters/v1 --eval --data ./data",
+        "venv": "mlx"
+      }
+    }
+  ]
+}
