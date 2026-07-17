@@ -43,7 +43,6 @@
         <module>vatn-plugin-node</module>
         <module>vatn-plugin-devenv</module>
         <module>vatn-plugin-containers</module>
-        <module>container-gui-installer</module>
     </modules>
 
     <properties>

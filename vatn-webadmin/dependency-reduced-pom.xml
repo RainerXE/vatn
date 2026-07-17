@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <parent>
-    <artifactId>vatn-plugins-parent</artifactId>
-    <groupId>dev.vatn.plugins</groupId>
-    <version>1.0-alpha.12</version>
+    <artifactId>vatn-parent</artifactId>
+    <groupId>dev.vatn</groupId>
+    <version>1.0-alpha.14</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>container-gui-installer</artifactId>
-  <name>VATN Installer: Container GUI</name>
-  <version>1.0-alpha.12</version>
-  <description>Bundles VATN Core, Auth Plugin, and Container Plugin into a single executable / native image</description>
+  <artifactId>vatn-webadmin</artifactId>
+  <name>VATN Web Admin</name>
+  <description>Standalone VATN Web Admin node — bundles VATN Core, Auth Plugin, Admin Plugin,
+        and the Container GUI Plugin into a single deployable executable / native image.
+        Installs as a background service (launchd on macOS, systemd on Linux).</description>
   <build>
     <plugins>
       <plugin>
@@ -24,8 +25,9 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>dev.vatn.installer.ContainerApp</mainClass>
+                  <mainClass>dev.vatn.webadmin.VatnWebAdmin</mainClass>
                 </transformer>
+                <transformer />
               </transformers>
               <filters>
                 <filter>
@@ -63,11 +65,12 @@
               </execution>
             </executions>
             <configuration>
-              <imageName>container-gui</imageName>
-              <mainClass>dev.vatn.installer.ContainerApp</mainClass>
+              <imageName>vatn-webadmin</imageName>
+              <mainClass>dev.vatn.webadmin.VatnWebAdmin</mainClass>
               <buildArgs>
                 <buildArg>--no-fallback</buildArg>
                 <buildArg>--initialize-at-build-time=org.slf4j.LoggerFactory</buildArg>
+                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
               </buildArgs>
             </configuration>
           </plugin>
@@ -75,4 +78,7 @@
       </build>
     </profile>
   </profiles>
+  <properties>
+    <vatn.plugins.version>1.0-alpha.12</vatn.plugins.version>
+  </properties>
 </project>

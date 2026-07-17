@@ -5,37 +5,52 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>dev.vatn.plugins</groupId>
-        <artifactId>vatn-plugins-parent</artifactId>
-        <version>1.0-alpha.12</version>
+        <groupId>dev.vatn</groupId>
+        <artifactId>vatn-parent</artifactId>
+        <version>1.0-alpha.14</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>container-gui-installer</artifactId>
-    <version>1.0-alpha.12</version>
+    <artifactId>vatn-webadmin</artifactId>
 
-    <name>VATN Installer: Container GUI</name>
-    <description>Bundles VATN Core, Auth Plugin, and Container Plugin into a single executable / native image</description>
+    <name>VATN Web Admin</name>
+    <description>
+        Standalone VATN Web Admin node — bundles VATN Core, Auth Plugin, Admin Plugin,
+        and the Container GUI Plugin into a single deployable executable / native image.
+        Installs as a background service (launchd on macOS, systemd on Linux).
+    </description>
+
+    <properties>
+        <vatn.plugins.version>1.0-alpha.12</vatn.plugins.version>
+    </properties>
 
     <dependencies>
         <!-- VATN Core -->
         <dependency>
             <groupId>dev.vatn</groupId>
             <artifactId>vatn-core</artifactId>
-            <version>${vatn.version}</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Container Plugin -->
         <dependency>
             <groupId>dev.vatn.plugins</groupId>
             <artifactId>vatn-plugin-containers</artifactId>
-            <version>1.0-alpha.12</version>
+            <version>${vatn.plugins.version}</version>
+        </dependency>
+
+        <!-- Admin UI Plugin -->
+        <dependency>
+            <groupId>dev.vatn.plugins</groupId>
+            <artifactId>vatn-plugin-admin</artifactId>
+            <version>${vatn.plugins.version}</version>
         </dependency>
 
         <!-- Auth Plugin -->
         <dependency>
             <groupId>dev.vatn.plugins</groupId>
             <artifactId>vatn-plugin-auth</artifactId>
-            <version>1.0-alpha.12</version>
+            <version>${vatn.plugins.version}</version>
         </dependency>
     </dependencies>
 
@@ -55,8 +70,9 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>dev.vatn.installer.ContainerApp</mainClass>
+                                    <mainClass>dev.vatn.webadmin.VatnWebAdmin</mainClass>
                                 </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -96,11 +112,12 @@
                             </execution>
                         </executions>
                         <configuration>
-                            <imageName>container-gui</imageName>
-                            <mainClass>dev.vatn.installer.ContainerApp</mainClass>
+                            <imageName>vatn-webadmin</imageName>
+                            <mainClass>dev.vatn.webadmin.VatnWebAdmin</mainClass>
                             <buildArgs>
                                 <buildArg>--no-fallback</buildArg>
                                 <buildArg>--initialize-at-build-time=org.slf4j.LoggerFactory</buildArg>
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
                             </buildArgs>
                         </configuration>
                     </plugin>

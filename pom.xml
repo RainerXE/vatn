@@ -21,6 +21,7 @@
         <module>vatn-cli</module>
         <module>vatn-test</module>
         <module>vatn-bench</module>
+        <module>vatn-webadmin</module>
         <module>plugins</module>
     </modules>
     
