@@ -43,6 +43,19 @@
     ]
   },
   {
+    "name" : "dev.vatn.cli.commands.InventoryCommand",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "home" },
+      { "name" : "json" },
+      { "name" : "listLogs" },
+      { "name" : "section" }
+    ]
+  },
+  {
     "name" : "dev.vatn.cli.commands.LogsCommand",
     "allDeclaredConstructors" : true,
     "allPublicConstructors" : true,

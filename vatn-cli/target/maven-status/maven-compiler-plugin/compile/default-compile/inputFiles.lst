@@ -1,6 +1,7 @@
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/InfoCommand.java
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/PluginCommandAdapter.java
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/InitCommand.java
+/Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/InventoryCommand.java
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/VatnCLI.java
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/LogsCommand.java
 /Users/rainer/SynologyDrive/Development/MyProjects/Java_Projects/vatn/vatn-cli/src/main/java/dev/vatn/cli/commands/RegistryCommand.java

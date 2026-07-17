@@ -1,3 +1,4 @@
+dev/vatn/cli/commands/InventoryCommand.class
 dev/vatn/cli/commands/InitCommand.class
 dev/vatn/cli/commands/TestCommand.class
 dev/vatn/cli/commands/RunCommand.class
