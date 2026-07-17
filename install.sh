@@ -37,6 +37,22 @@ err()   { printf "  ${RED}✖${RST}  %s\n" "$*" >&2; }
 step()  { printf "\n${BLD}${BLU}━━  %s  ━━${RST}\n" "$*"; }
 die()   { err "$*"; exit 1; }
 
+# ── Install log ───────────────────────────────────────────────────────────────
+# We set up the log dir early (best-effort) and tee all stdout+stderr into it.
+# The log path is also recorded in itself so it's self-describing.
+VATN_LOG_DIR="${VATN_INSTALL_DIR:-$HOME/.vatn}/logs"
+mkdir -p "$VATN_LOG_DIR" 2>/dev/null || VATN_LOG_DIR="/tmp"
+INSTALL_LOG="$VATN_LOG_DIR/install-$(date +%Y%m%d-%H%M%S).log"
+# Tee all stdout+stderr to the log file without stripping ANSI codes from the terminal,
+# but write a clean (no-color) copy to the log file.
+exec > >(tee >(sed 's/\x1B\[[0-9;]*[mK]//g' >> "$INSTALL_LOG")) 2>&1
+
+# Structured key=value log entries — append to the install log
+log_entry() { printf "%-30s %s\n" "$1" "$2" >> "$INSTALL_LOG"; }
+
+# Manifest array — filled in as we install things
+MANIFEST=()
+
 # read from /dev/tty so the installer works when piped via curl | bash
 ask() {
   printf "  ${CYN}?${RST}  %s " "$*"
@@ -632,6 +648,100 @@ if $INSTALL_CORE; then
   export PATH="$INSTALL_DIR/bin:$PATH"
 fi
 
+# ── Install manifest → log file ──────────────────────────────────────────────
+# Write a clean, machine-readable installation manifest so the user can always
+# find out exactly where each piece was installed.
+{
+  printf "\n"
+  printf "=%.0s" {1..60}; printf "\n"
+  printf "VATN INSTALLATION MANIFEST\n"
+  printf "%-30s %s\n" "timestamp"    "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  printf "%-30s %s\n" "installer"    "$0"
+  printf "%-30s %s\n" "os_platform"  "$PLATFORM"
+  printf "%-30s %s\n" "architecture" "$ARCH"
+  printf "%-30s %s\n" "java_version" "$(java -version 2>&1 | head -1)"
+  printf "=%.0s" {1..60}; printf "\n"
+  printf "\n"
+
+  printf "[DIRECTORIES]\n"
+  printf "%-30s %s\n" "vatn_home"         "$INSTALL_DIR"
+  printf "%-30s %s\n" "bin_dir"           "$INSTALL_DIR/bin"
+  printf "%-30s %s\n" "lib_dir"           "$INSTALL_DIR/lib"
+  printf "%-30s %s\n" "plugins_dir"       "$INSTALL_DIR/plugins"
+  printf "%-30s %s\n" "config_dir"        "$INSTALL_DIR/config"
+  printf "%-30s %s\n" "logs_dir"          "$INSTALL_DIR/logs"
+  printf "\n"
+
+  printf "[COMPONENTS]\n"
+  printf "%-30s %s\n" "core_runtime"      "$($INSTALL_CORE && echo INSTALLED || echo SKIPPED)"
+  printf "%-30s %s\n" "web_admin"         "$($INSTALL_WEBADMIN && echo INSTALLED || echo SKIPPED)"
+  printf "%-30s %s\n" "plugins"           "$($INSTALL_PLUGINS && echo INSTALLED || echo SKIPPED)"
+  printf "%-30s %s\n" "examples"          "$($INSTALL_EXAMPLES && echo INSTALLED || echo SKIPPED)"
+  printf "\n"
+
+  if $INSTALL_CORE; then
+    printf "[CORE RUNTIME]\n"
+    printf "%-30s %s\n" "launcher"          "$INSTALL_DIR/bin/vatn"
+    printf "%-30s %s\n" "runtime_jar"       "$INSTALL_DIR/lib/vatn-cli.jar"
+    printf "%-30s %s\n" "config_file"       "$INSTALL_DIR/config/vatn.conf"
+    printf "%-30s %s\n" "release_tag"       "${LATEST_TAG:-unknown}"
+    printf "\n"
+  fi
+
+  if $INSTALL_WEBADMIN; then
+    printf "[WEB ADMIN]\n"
+    WEBADMIN_BIN="$INSTALL_DIR/bin/vatn-webadmin"
+    printf "%-30s %s\n" "binary"            "$WEBADMIN_BIN"
+    printf "%-30s %s\n" "jar"               "$INSTALL_DIR/lib/vatn-webadmin.jar"
+    printf "%-30s %s\n" "log_out"           "$INSTALL_DIR/logs/webadmin.out.log"
+    printf "%-30s %s\n" "log_err"           "$INSTALL_DIR/logs/webadmin.err.log"
+    printf "%-30s %s\n" "url_admin"         "http://localhost:8080/vatn/admin"
+    printf "%-30s %s\n" "url_containers"    "http://localhost:8080/vatn/containers"
+    if [ "$PLATFORM" = "macos" ]; then
+      printf "%-30s %s\n" "launchd_plist"   "$HOME/Library/LaunchAgents/dev.vatn.webadmin.plist"
+      printf "%-30s %s\n" "service_label"   "dev.vatn.webadmin"
+      printf "%-30s %s\n" "manage_stop"     "launchctl stop dev.vatn.webadmin"
+      printf "%-30s %s\n" "manage_start"    "launchctl start dev.vatn.webadmin"
+    elif [ "$PLATFORM" = "linux" ]; then
+      printf "%-30s %s\n" "systemd_service" "$HOME/.config/systemd/user/vatn-webadmin.service"
+      printf "%-30s %s\n" "manage_stop"     "systemctl --user stop vatn-webadmin"
+      printf "%-30s %s\n" "manage_start"    "systemctl --user start vatn-webadmin"
+    fi
+    printf "\n"
+  fi
+
+  if $INSTALL_PLUGINS; then
+    printf "[PLUGINS]\n"
+    printf "%-30s %s\n" "plugins_dir"       "$INSTALL_DIR/plugins"
+    printf "%-30s %s\n" "plugin_count"      "${#SELECTED_PLUGINS[@]}"
+    for p in "${SELECTED_PLUGINS[@]}"; do
+      printf "%-30s %s\n" "plugin" "vatn-plugin-${p}.jar  →  $INSTALL_DIR/plugins/vatn-plugin-${p}.jar"
+    done
+    if [ "${#FAILED[@]:-0}" -gt 0 ] 2>/dev/null; then
+      for p in "${FAILED[@]}"; do
+        printf "%-30s %s\n" "plugin_not_released" "vatn-plugin-${p}  (build from source)"
+      done
+    fi
+    printf "\n"
+  fi
+
+  if $INSTALL_EXAMPLES && [ -n "${DEV_DIR:-}" ]; then
+    printf "[EXAMPLES]\n"
+    printf "%-30s %s\n" "examples_dir"      "${DEV_DIR}/vatn/examples"
+    printf "%-30s %s\n" "source_repo"       "https://github.com/RainerXE/vatn"
+    printf "\n"
+  fi
+
+  printf "[PATH]\n"
+  if $INSTALL_CORE; then
+    printf "%-30s %s\n" "added_to_path"   "$INSTALL_DIR/bin"
+    printf "%-30s %s\n" "shell_rc"        "$([ -n "${SHELL:-}" ] && echo "$HOME/.$(basename $SHELL)rc" || echo 'see shell rc')"
+  fi
+  printf "\n"
+  printf "%-30s %s\n" "this_log"          "$INSTALL_LOG"
+  printf "=%.0s" {1..60}; printf "\n"
+} >> "$INSTALL_LOG"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 printf "\n${BLD}${GRN}"
 printf "  ╔══════════════════════════════════════════════════════╗\n"
@@ -639,22 +749,31 @@ printf "  ║   ✔  VATN — Runtime for Personal Services           ║\n"
 printf "  ║        installed successfully!                       ║\n"
 printf "  ╚══════════════════════════════════════════════════════╝\n"
 printf "${RST}\n"
-printf "  ${BLD}Home:${RST}      %s\n" "$INSTALL_DIR"
+printf "  ${BLD}Home:${RST}           %s\n" "$INSTALL_DIR"
 
 if $INSTALL_CORE; then
-  printf "  ${BLD}Config:${RST}    %s\n" "$INSTALL_DIR/config/vatn.conf"
+  printf "  ${BLD}CLI launcher:${RST}   %s\n" "$INSTALL_DIR/bin/vatn"
+  printf "  ${BLD}Runtime JAR:${RST}    %s\n" "$INSTALL_DIR/lib/vatn-cli.jar"
+  printf "  ${BLD}Config:${RST}         %s\n" "$INSTALL_DIR/config/vatn.conf"
 fi
 if $INSTALL_PLUGINS; then
-  printf "  ${BLD}Plugins:${RST}   %s installed\n" "${#SELECTED_PLUGINS[@]}"
+  printf "  ${BLD}Plugins dir:${RST}    %s\n" "$INSTALL_DIR/plugins"
+  printf "  ${BLD}Plugins:${RST}        %s installed\n" "${#SELECTED_PLUGINS[@]}"
 fi
 
 printf "\n"
 
 if $INSTALL_WEBADMIN; then
   printf "  ${BLD}VATN Web Admin:${RST}\n"
+  printf "    Binary           →  ${CYN}%s${RST}\n" "$INSTALL_DIR/bin/vatn-webadmin"
   printf "    Admin Dashboard  →  ${CYN}http://localhost:8080/vatn/admin${RST}\n"
   printf "    Containers GUI   →  ${CYN}http://localhost:8080/vatn/containers${RST}\n"
-  printf "    ${DIM}Running as a background daemon (launchd/systemd).${RST}\n"
+  printf "    Logs             →  ${CYN}%s${RST}\n" "$INSTALL_DIR/logs/webadmin.out.log"
+  if [ "$PLATFORM" = "macos" ]; then
+    printf "    LaunchAgent      →  ${CYN}%s${RST}\n" "$HOME/Library/LaunchAgents/dev.vatn.webadmin.plist"
+  elif [ "$PLATFORM" = "linux" ]; then
+    printf "    Systemd service  →  ${CYN}%s${RST}\n" "$HOME/.config/systemd/user/vatn-webadmin.service"
+  fi
   printf "    ${DIM}Set VATN_ADMIN_PASS + VATN_JWT_SECRET env vars in production.${RST}\n"
   printf "\n"
 fi
@@ -664,6 +783,9 @@ if [ "${#FAILED[@]:-0}" -gt 0 ] 2>/dev/null; then
   for p in "${FAILED[@]}"; do printf "    ${DIM}• vatn-plugin-%s${RST}\n" "$p"; done
   printf "\n"
 fi
+
+printf "  ${BLD}Install log:${RST}    ${CYN}%s${RST}\n" "$INSTALL_LOG"
+printf "\n"
 
 printf "  ${BLD}Next steps:${RST}\n"
 if $INSTALL_CORE; then
