@@ -271,6 +271,14 @@ public class VNodeRunner {
         context.registerService(dev.vatn.api.workflow.VDagScheduler.class, dagScheduler);
         dagScheduler.start();
 
+        // 1.2.1 Workload Registry & Core Providers
+        dev.vatn.core.admin.VWorkloadRegistryImpl workloadRegistry = new dev.vatn.core.admin.VWorkloadRegistryImpl();
+        context.registerService(dev.vatn.api.admin.VWorkloadRegistry.class, workloadRegistry);
+        
+        LocalProcessService processService = (LocalProcessService) context.getService(dev.vatn.api.VProcessService.class).get();
+        workloadRegistry.registerProvider(new dev.vatn.core.admin.ProcessWorkloadProvider(processService));
+        workloadRegistry.registerProvider(new dev.vatn.core.admin.DagWorkloadProvider(dagEngine));
+
         // 1.3 Tracing — OTLP when VATN_OTLP_ENDPOINT is set, noop otherwise
         String otlpEndpoint = System.getenv("VATN_OTLP_ENDPOINT");
         if (otlpEndpoint != null && !otlpEndpoint.isBlank()) {

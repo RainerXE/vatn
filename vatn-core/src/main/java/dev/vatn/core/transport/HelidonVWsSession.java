@@ -21,4 +21,14 @@ public class HelidonVWsSession implements VWsSession {
     public void close(int statusCode, String reason) {
         delegate.close(statusCode, reason);
     }
+
+    @Override
+    public String getPath() {
+        return delegate.prologue().uriPath().path();
+    }
+
+    @Override
+    public String getQueryParam(String name) {
+        return delegate.prologue().query().getRaw(name);
+    }
 }

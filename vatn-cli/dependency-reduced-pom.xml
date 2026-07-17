@@ -3,7 +3,7 @@
   <parent>
     <artifactId>vatn-parent</artifactId>
     <groupId>dev.vatn</groupId>
-    <version>1.0-alpha.11</version>
+    <version>1.0-alpha.14</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>vatn-cli</artifactId>

@@ -5,6 +5,7 @@ dev/vatn/cli/commands/LogsCommand.class
 dev/vatn/cli/commands/InfoCommand.class
 META-INF/native-image/picocli-generated/dev.vatn/vatn-cli/reflect-config.json
 dev/vatn/cli/commands/OipcBenchmarkCommand$Protocol.class
+dev/vatn/cli/PluginCommandAdapter.class
 dev/vatn/cli/commands/OipcBenchmarkCommand$BenchmarkMode.class
 dev/vatn/cli/VatnCLI.class
 dev/vatn/cli/commands/RegistryCommand.class

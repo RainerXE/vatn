@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.time.Instant;
+import dev.vatn.api.admin.VWorkload;
 import dev.vatn.api.security.VTrustLevel;
 import dev.vatn.core.security.OsSandboxWrapper;
 
@@ -29,6 +32,7 @@ import dev.vatn.core.security.OsSandboxWrapper;
 public class LocalProcessService implements VProcessService {
 
     private final ShellEnvPolicy policy;
+    private final Map<Long, VWorkload> activeWorkloads = new ConcurrentHashMap<>();
 
     /** Constructs with policy loaded from the workspace configuration. */
     public LocalProcessService() {
@@ -44,6 +48,10 @@ public class LocalProcessService implements VProcessService {
     // VProcessService implementation
     // -----------------------------------------------------------------------
 
+    public List<VWorkload> getActiveWorkloads() {
+        return List.copyOf(activeWorkloads.values());
+    }
+
     @Override
     public VProcessResult execute(List<String> command, Map<String, String> env, String workingDir)
             throws IOException {
@@ -56,6 +64,17 @@ public class LocalProcessService implements VProcessService {
 
         ProcessBuilder pb = buildProcess(command, env, workingDir, trustLevel);
         Process process = pb.start();
+
+        VWorkload workload = new VWorkload(
+            String.valueOf(process.pid()),
+            String.join(" ", command),
+            VWorkload.Type.PROCESS,
+            VWorkload.Status.RUNNING,
+            Instant.now(),
+            Map.of("pid", String.valueOf(process.pid()))
+        );
+        activeWorkloads.put(process.pid(), workload);
+        process.onExit().thenRun(() -> activeWorkloads.remove(process.pid()));
 
         String stdout;
         String stderr;
@@ -96,6 +115,18 @@ public class LocalProcessService implements VProcessService {
 
         ProcessBuilder pb = buildProcess(command, env, workingDir, trustLevel, envGrants);
         Process process = pb.start();
+        
+        VWorkload workload = new VWorkload(
+            String.valueOf(process.pid()),
+            String.join(" ", command),
+            VWorkload.Type.PROCESS,
+            VWorkload.Status.RUNNING,
+            Instant.now(),
+            Map.of("pid", String.valueOf(process.pid()))
+        );
+        activeWorkloads.put(process.pid(), workload);
+        process.onExit().thenRun(() -> activeWorkloads.remove(process.pid()));
+
         return new VProcessHandle(
                 process.pid(),
                 process.getInputStream(),

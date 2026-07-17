@@ -18,4 +18,14 @@ public interface VWsSession {
 
     /** Closes the session with the given WebSocket status code and reason. */
     void close(int statusCode, String reason);
+
+    /** Returns the path of the WebSocket request. */
+    default String getPath() {
+        return null;
+    }
+
+    /** Returns a query parameter from the upgrade request. */
+    default String getQueryParam(String name) {
+        return null;
+    }
 }

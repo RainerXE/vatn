@@ -1,5 +1,16 @@
 [
   {
+    "name" : "dev.vatn.cli.PluginCommandAdapter",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "positionals" },
+      { "name" : "unmatched" }
+    ]
+  },
+  {
     "name" : "dev.vatn.cli.VatnCLI",
     "allDeclaredConstructors" : true,
     "allPublicConstructors" : true,
