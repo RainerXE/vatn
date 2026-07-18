@@ -43,6 +43,8 @@
         <module>vatn-plugin-node</module>
         <module>vatn-plugin-devenv</module>
         <module>vatn-plugin-containers</module>
+        <module>vatn-plugin-indexer</module>
+        <module>vatn-plugin-scraper</module>
     </modules>
 
     <properties>
