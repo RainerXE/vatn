@@ -12,7 +12,7 @@ Wraps the jBCrypt library (at.favre.lib:bcrypt). The cost factor controls the wo
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-bcrypt</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

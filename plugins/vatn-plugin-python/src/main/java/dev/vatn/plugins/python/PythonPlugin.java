@@ -37,7 +37,7 @@ public class PythonPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.python"; }
     @Override public String getName()    { return "VATN Python Runtime"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

@@ -36,7 +36,7 @@ public class BcryptPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.bcrypt"; }
     @Override public String getName()    { return "VATN BCrypt Plugin"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

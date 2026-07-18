@@ -12,7 +12,7 @@ Initialises a HikariCP `DataSource` at plugin startup using the supplied connect
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-postgres</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

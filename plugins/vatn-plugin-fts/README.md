@@ -12,7 +12,7 @@ Creates an FTS5 virtual table inside the node's existing `VPersistenceService` d
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-fts</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

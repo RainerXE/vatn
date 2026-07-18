@@ -63,7 +63,7 @@ public class WasmPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.wasm"; }
     @Override public String getName()    { return "VATN WASM Plugin"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

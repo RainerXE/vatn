@@ -12,7 +12,7 @@ Stateless HTTP POST to a Slack Incoming Webhook endpoint using VATN's built-in `
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-slack</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

@@ -12,7 +12,7 @@ Registers four Helidon HTTP routes (`/.well-known/webfinger`, `/ap/actor`, `/ap/
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-activitypub</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

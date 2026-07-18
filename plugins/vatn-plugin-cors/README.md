@@ -12,7 +12,7 @@ Implements `VHttpFilter` at order 150, which places it early in the filter chain
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-cors</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

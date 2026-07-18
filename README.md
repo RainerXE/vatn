@@ -176,7 +176,7 @@ VATN_PLUGINS=cors,auth,swagger,postgres \
 ```bash
 source ~/.zshrc          # reload shell (or open a new terminal)
 
-vatn --version           # VATN Runtime 1.0.0
+vatn --version           # VATN Runtime 1.0-alpha.14
 vatn init my-project     # scaffold a new plugin project
 cd my-project
 vatn run                 # starts node on :8080
