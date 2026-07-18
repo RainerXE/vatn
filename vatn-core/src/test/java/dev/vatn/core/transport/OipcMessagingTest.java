@@ -132,6 +132,90 @@ public class OipcMessagingTest {
         }
     }
 
+    @Test
+    public void testHttpConnectTunnel() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<String> received = new AtomicReference<>();
+            transport.subscribe("binary.ingress", p -> { received.set(new String(p)); latch.countDown(); });
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                int port = transport.getConnectionPort();
+                String connectReq = "CONNECT 127.0.0.1:" + port + " HTTP/1.1\r\n"
+                    + "Host: 127.0.0.1:" + port + "\r\n\r\n";
+                client.getOutputStream().write(connectReq.getBytes(StandardCharsets.US_ASCII));
+
+                // Read the 200 response line.
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
+                String statusLine = br.readLine();
+                assertNotNull(statusLine, "Expected an HTTP response line");
+                assertTrue(statusLine.contains("200 Connection established"),
+                    "Expected 200 Connection established, got: " + statusLine);
+
+                // The socket is now a transparent pipe — send a normal 'O' + V3 HELLO + data frame.
+                sendHelloThenData(client.getOutputStream(), "tunnelData");
+
+                assertTrue(latch.await(2, TimeUnit.SECONDS),
+                    "Did not receive routed payload over HTTP CONNECT tunnel");
+                assertEquals("tunnelData", received.get());
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
+    public void testHttpConnectDenied() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevAllowlist = System.getProperty("vatn.ipc.connect_allowlist");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.connect_allowlist", "10.0.0.1:443"); // different host
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            transport.subscribe("binary.ingress", p -> latch.countDown());
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                int port = transport.getConnectionPort();
+                String connectReq = "CONNECT 127.0.0.1:" + port + " HTTP/1.1\r\n"
+                    + "Host: 127.0.0.1:" + port + "\r\n\r\n";
+                client.getOutputStream().write(connectReq.getBytes(StandardCharsets.US_ASCII));
+
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
+                String statusLine = br.readLine();
+                assertNotNull(statusLine, "Expected an HTTP response line");
+                assertTrue(statusLine.contains("403 Forbidden"),
+                    "Expected 403 Forbidden, got: " + statusLine);
+
+                // Connection is closed on deny — no payload should arrive.
+                assertFalse(latch.await(1, TimeUnit.SECONDS),
+                    "Payload must NOT be received when CONNECT is denied");
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.connect_allowlist", prevAllowlist);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    private static java.net.Socket rawSocket(OipcMessagingTransport transport) throws Exception {
+        java.net.Socket s = new java.net.Socket();
+        s.connect(new InetSocketAddress("127.0.0.1", transport.getConnectionPort()));
+        return s;
+    }
+
     private static void restoreProp(String key, String value) {
         if (value == null) System.clearProperty(key);
         else System.setProperty(key, value);
@@ -180,6 +264,31 @@ public class OipcMessagingTest {
              .putInt(payloadData.length).putInt(0).putInt(0)
              .put(payloadData);
         client.write(frame.flip());
+    }
+
+    private void sendHelloThenData(java.io.OutputStream out, String payload) throws Exception {
+        byte[] payloadData = payload.getBytes(StandardCharsets.UTF_8);
+        byte[] nodeIdBytes = "test-client".getBytes(StandardCharsets.UTF_8);
+
+        int helloLen = 3 + nodeIdBytes.length;
+        ByteBuffer hello = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + helloLen)
+            .order(ByteOrder.BIG_ENDIAN);
+        hello.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x22)
+             .putInt(helloLen).putInt(123).putInt(0)
+             .put((byte) 0x05).put((byte) 2).put((byte) 12)
+             .put(nodeIdBytes);
+        out.write(hello.array());
+        out.flush();
+
+        ByteBuffer frame = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + payloadData.length)
+            .order(ByteOrder.BIG_ENDIAN);
+        frame.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x02)
+             .putInt(payloadData.length).putInt(0).putInt(0)
+             .put(payloadData);
+        out.write(frame.array());
+        out.flush();
     }
 
     private SocketChannel connectToTransport(OipcMessagingTransport transport) throws Exception {

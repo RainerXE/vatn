@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PushbackInputStream;
 import java.nio.channels.Channels;
 import java.net.InetSocketAddress;
 import java.net.StandardProtocolFamily;
@@ -72,6 +74,13 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
 
     private static final int CHUNK_SIZE       = Integer.getInteger("vatn.ipc.chunk_size",       1024 * 1024);
     private static final int MAX_MESSAGE_SIZE = Integer.getInteger("vatn.ipc.max_message_size", 256 * 1024 * 1024);
+
+    private static final java.util.regex.Pattern CONNECT_PATTERN =
+        java.util.regex.Pattern.compile("^CONNECT\\s+([^:]+):(\\d+)\\s+HTTP/\\d\\.\\d$",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private final boolean httpConnectEnabled = Boolean.getBoolean("vatn.ipc.http_connect_enabled");
+    private final String connectAllowlist = System.getProperty("vatn.ipc.connect_allowlist", "");
 
     private final Map<String, MessageReassembler> reassemblers = new ConcurrentHashMap<>();
     private final java.util.concurrent.ScheduledExecutorService scheduler =
@@ -163,10 +172,22 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
 
     private void handleClient(ClientConnection client) {
         try {
-            InputStream in = Channels.newInputStream(client.channel);
+            PushbackInputStream in = new PushbackInputStream(
+                Channels.newInputStream(client.channel), 1);
             int firstByte = in.read();
 
             if (firstByte == -1) { client.close(); return; }
+
+            // Optional v2.13 HTTP CONNECT tunnel termination (TCP-only, gated by system property).
+            if (firstByte == 'C' && httpConnectEnabled() && !isUds) {
+                if (!handleConnectTunnel(in, client)) {
+                    return; // deny: connection already closed by the handler
+                }
+                // On allow, the CONNECT exchange is consumed and the stream is now positioned
+                // for the subsequent 'O' + Greeting/V3 frame. Re-read to dispatch normally.
+                firstByte = in.read();
+                if (firstByte == -1) { client.close(); return; }
+            }
 
             if (firstByte != 0x4F) { // 'O'
                 log.warn("Unknown OIPC magic byte 0x{} — expected 'O' (0x4F)",
@@ -198,6 +219,7 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
                 }
                 client.clientId = greeting.clientId;
                 client.authToken = greeting.authToken;
+                client.tunneledHttp = (greeting.flags & GREETING_FLAG_TUNNELED_HTTP) != 0;
                 // Continue into the V3 loop; the next byte read will be the V3 wire_version.
                 handleBinaryClient(client, in, -1);
             } else if (discriminator == 3) {   // legacy v2.12 client — this byte IS the V3 version
@@ -225,6 +247,78 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
             if (host.equals(t.trim())) return true;
         }
         return false;
+    }
+
+    private boolean httpConnectEnabled() {
+        return httpConnectEnabled;
+    }
+
+    /**
+     * Terminates an in-band HTTP CONNECT tunnel on a new TCP connection, then leaves the stream
+     * positioned for the subsequent Greeting/V3 exchange. Returns {@code true} if the tunnel was
+     * accepted (200 Connection established) and the caller should continue with the normal path,
+     * or {@code false} if the request was denied (403) or malformed — in which case the connection
+     * has already been closed.
+     */
+    private boolean handleConnectTunnel(PushbackInputStream in, ClientConnection client) throws IOException {
+        StringBuilder request = new StringBuilder("C");
+        int state = 0; // counts consecutive '\r\n' to detect the terminating blank line
+        int b;
+        String targetHostPort = null;
+        while ((b = in.read()) != -1) {
+            if (b == '\r') {
+                int c = in.read();
+                if (c == '\n') {
+                    if (state == 1) break; // second consecutive CRLF → end of headers
+                    state = 1;
+                    // capture the request line (first line only)
+                    if (targetHostPort == null) {
+                        targetHostPort = parseConnectTarget(request.toString().trim());
+                    }
+                    request.setLength(0);
+                } else {
+                    state = 0;
+                    if (c != -1) in.unread(c);
+                }
+            } else {
+                state = 0;
+                request.append((char) b);
+            }
+        }
+        if (targetHostPort == null) {
+            log.warn("Malformed HTTP CONNECT request — closing connection");
+            client.close();
+            return false;
+        }
+
+        boolean allowed = connectAllowlist.isEmpty()
+            || connectAllowlist.contains(targetHostPort);
+
+        OutputStream out = Channels.newOutputStream(client.channel);
+        if (allowed) {
+            log.info("HTTP CONNECT tunnel authorized for {} (out-of-band, transparent)", targetHostPort);
+            out.write("HTTP/1.1 200 Connection established\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+            return true;
+        } else {
+            log.warn("HTTP CONNECT tunnel DENIED for {} — not in allowlist", targetHostPort);
+            out.write("HTTP/1.1 403 Forbidden\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+            client.close();
+            return false;
+        }
+    }
+
+    /**
+     * Parses the target of a {@code CONNECT <host>:<port> HTTP/1.1} request line. Returns the
+     * {@code host:port} string (lower-cased host) or {@code null} if the line is not a CONNECT.
+     */
+    private static String parseConnectTarget(String requestLine) {
+        java.util.regex.Matcher m = CONNECT_PATTERN.matcher(requestLine);
+        if (m.matches()) {
+            return m.group(1).toLowerCase() + ":" + m.group(2);
+        }
+        return null;
     }
 
     /**
@@ -532,6 +626,9 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
         volatile byte[] clientId;
         @SuppressWarnings("unused")
         volatile byte[] authToken;
+        // v2.13 Tunneled_HTTP greeting flag (bit 3) — diagnostic only; does not change handshake.
+        @SuppressWarnings("unused")
+        volatile boolean tunneledHttp;
 
         ClientConnection(SocketChannel channel) { this.channel = channel; }
         void close() { try { channel.close(); } catch (IOException e) { log.debug("Error closing client channel {}", id, e); } }
