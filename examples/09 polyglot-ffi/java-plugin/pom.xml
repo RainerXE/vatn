@@ -33,8 +33,8 @@
         <!-- In a real standalone VATN plugin, you'd depend on:
              <dependency>
                  <groupId>dev.vatn</groupId>
-                 <artifactId>vatn-api</artifactId>
-                 <version>1.0-SNAPSHOT</version>
+                  <artifactId>vatn-api</artifactId>
+                  <version>1.0-alpha.14</version>
                  <scope>provided</scope>
              </dependency>
         -->
