@@ -1,6 +1,7 @@
 package dev.vatn.junit;
 
 import dev.vatn.api.VNodeContext;
+import dev.vatn.api.VNodePlugin;
 import dev.vatn.api.workflow.VDagEngine;
 import dev.vatn.api.workflow.VDagRunState;
 import org.junit.jupiter.api.Assertions;
@@ -140,12 +141,11 @@ public final class VatnAssertions {
 
     /** Assert a plugin with the given ID is registered and active in the context. */
     public static void assertPluginLoaded(VNodeContext ctx, String pluginId) {
-        boolean found = ctx.getLoadedPlugins().stream()
-                .anyMatch(p -> pluginId.equals(p.getId()));
+        var plugins = ctx.getPluginRegistry().getPlugins();
+        boolean found = plugins.stream().anyMatch(p -> pluginId.equals(p.getId()));
         if (!found) {
             Assertions.fail("Expected plugin [" + pluginId + "] to be loaded. "
-                    + "Loaded plugins: " + ctx.getLoadedPlugins().stream()
-                            .map(p -> p.getId()).toList());
+                    + "Loaded plugins: " + plugins.stream().map(VNodePlugin::getId).toList());
         }
     }
 
