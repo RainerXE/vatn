@@ -87,12 +87,11 @@ class CrashRecoveryTest {
     void dagTasksAreIdempotentAcrossRestart() throws Exception {
         Path dbPath = tempDir.resolve("vatn.db");
         System.setProperty("user.home", tempDir.toAbsolutePath().toString());
-        System.setProperty("vatn.db.path", dbPath.toAbsolutePath().toString());
 
         AtomicInteger execCount = new AtomicInteger(0);
 
         // ── First run ──────────────────────────────────────────────────────
-        VNodeRunner runner1 = VNodeRunner.create(0);
+        VNodeRunner runner1 = VNodeRunner.create(0).withDbPath(dbPath);
         runner1.start();
 
         VDagEngine engine1 = runner1.getContext().getDagEngine();
@@ -123,7 +122,7 @@ class CrashRecoveryTest {
         runner1.stop();
 
         // ── Second run (simulated restart) ─────────────────────────────────
-        VNodeRunner runner2 = VNodeRunner.create(0);
+        VNodeRunner runner2 = VNodeRunner.create(0).withDbPath(dbPath);
         runner2.start();
 
         VDagEngine engine2 = runner2.getContext().getDagEngine();

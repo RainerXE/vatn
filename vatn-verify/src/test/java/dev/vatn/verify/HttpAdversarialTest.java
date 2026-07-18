@@ -2,9 +2,11 @@ package dev.vatn.verify;
 
 import dev.vatn.core.VNodeRunner;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;

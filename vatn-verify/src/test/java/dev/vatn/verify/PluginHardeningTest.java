@@ -131,9 +131,7 @@ class PluginHardeningTest {
                 @Override public String getVersion() { return "1.0"; }
                 @Override public void onInitialize(VNodeContext ctx) {
                     // Both try to register GET /collision
-                    ctx.getHttpService().ifPresent(svc ->
-                        svc.get("/collision", (req, res) -> res.send("ok from " + id))
-                    );
+                    ctx.register("/", routes -> routes.get("/collision", (req, res) -> res.send("ok from " + id)));
                 }
             });
         }
@@ -172,12 +170,10 @@ class PluginHardeningTest {
             @Override public String getName()    { return "Counter"; }
             @Override public String getVersion() { return "1.0"; }
             @Override public void onInitialize(VNodeContext ctx) {
-                ctx.getHttpService().ifPresent(svc ->
-                    svc.get("/counter", (req, res) -> {
-                        int n = requestsServed.incrementAndGet();
-                        res.sendJson("{\"count\":" + n + "}");
-                    })
-                );
+                ctx.register("/", routes -> routes.get("/counter", (req, res) -> {
+                    int n = requestsServed.incrementAndGet();
+                    res.sendJson("{\"count\":" + n + "}");
+                }));
             }
         });
         runner.start();
@@ -250,11 +246,11 @@ class PluginHardeningTest {
     }
 
     // =========================================================================
-    // 6. Plugin stop that hangs — node must still shut down
+    // 6. Plugin shutdown hook that hangs — node must still shut down
     // =========================================================================
 
     @Test
-    @DisplayName("Plugin whose onStop hangs must not prevent node shutdown")
+    @DisplayName("Plugin whose onShutdown hangs must not prevent node shutdown")
     @Timeout(20)
     void hangingOnStopDoesNotBlockShutdown() throws Exception {
         System.setProperty("user.home", tempDir.toAbsolutePath().toString());
@@ -265,7 +261,7 @@ class PluginHardeningTest {
             @Override public String getName()    { return "HangingStop"; }
             @Override public String getVersion() { return "1.0"; }
             @Override public void onInitialize(VNodeContext ctx) {}
-            @Override public void onStop() {
+            @Override public void onShutdown() {
                 try {
                     // Hang for a very long time — shutdown should interrupt this
                     Thread.sleep(60_000);
@@ -283,7 +279,7 @@ class PluginHardeningTest {
         long elapsed = System.currentTimeMillis() - start;
 
         assertTrue(elapsed < 15_000,
-                "Node stop() must complete within 15s even when a plugin's onStop hangs. "
+                "Node stop() must complete within 15s even when a plugin's onShutdown hangs. "
                 + "Actual: " + elapsed + "ms");
     }
 }
