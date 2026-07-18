@@ -4,3 +4,6 @@ dependency-reduced-pom.xml
 /plans
 .claude/
 agents.md
+
+# IDE files
+.idea/
