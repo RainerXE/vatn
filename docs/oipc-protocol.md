@@ -1,4 +1,4 @@
-# OIPC Protocol Specification — v2.12
+# OIPC Protocol Specification — v2.12 (+ v2.13 delta)
 
 **Octet IPC (OIPC)** is the standard communication protocol between VATN and out-of-process plugins. It is language-agnostic (Python, C, Odin, Rust, …), supports payloads from a few bytes up to 256 MB, and transparently degrades from a V3 binary framing down to a plain JSON envelope so that simple clients can participate without a binary parser.
 
@@ -21,6 +21,29 @@ Trust filtering applies to TCP connections only (UDS is filesystem-backed and in
 # System property — comma-separated trusted IPs (TCP only)
 vatn.ipc.trusted_hosts=127.0.0.1,0:0:0:0:0:0:0:1   # default
 ```
+
+---
+
+## 2.0 v2.13 Additions (delta over v2.12)
+
+OIPC v2.13 is a **strictly additive, backward-compatible** delta on top of v2.12. The
+**V3 binary header (§2.1) and the HELLO handshake (§3.1) are UNCHANGED**. v2.13 adds the
+following on the wire (`ver_minor` stays `12` — fully backward compatible):
+
+1. **64-byte Greeting bootstrap** — an *optional* frame that may precede the V3 frame stream,
+   carrying a pre-shared `auth_token` (24 bytes) and a stable `client_id` (16 bytes). A v2.12
+   client (which starts directly with a V3 frame) is still fully supported; the server
+   distinguishes the two by inspecting the byte at offset 4 (`2` → Greeting, `3` → V3).
+2. **Tunneled_HTTP greeting flag (bit 3)** — informational/diagnostic only; it does not change
+   the handshake or framing behavior.
+3. **HTTP CONNECT tunnel** — an in-band `CONNECT` request may *precede* the Greeting on a TCP
+   connection. The server terminates the tunnel (replies `200`/`403`), then continues the normal
+   Greeting/V3 exchange transparently on the same socket. This is out-of-band with respect to the
+   OIPC frame stream.
+
+The full VATN-specific mapping of the v2.13 delta — Greeting layout, flag bits, auth_token
+semantics, CONNECT gating, and per-connection identity surfacing — is documented in
+[`vatn-spec/OIPC-213-alignment.md`](../vatn-spec/OIPC-213-alignment.md).
 
 ---
 
@@ -212,4 +235,8 @@ High-level semantic opcodes used by application-layer pub/sub routing (not part 
 
 ---
 
-*OIPC v2.12 — "Relentless". Implemented in `OipcMessagingTransport`, `OipcProcessPluginProxy`, `VWatchdogServiceImpl`.*
+*OIPC v2.12 — "Relentless". The v2.13 additions (64-byte Greeting bootstrap, Tunneled_HTTP flag,
+and HTTP CONNECT tunnel) are implemented in `OipcMessagingTransport` (server) and `OipcGreeting`
+(client helper). Per-connection identity surfacing uses `VatnSecurity.CURRENT_AUTH_TOKEN` /
+`CURRENT_CLIENT_ID` ScopedValues. See [`vatn-spec/OIPC-213-alignment.md`](../vatn-spec/OIPC-213-alignment.md)
+for the full delta.*

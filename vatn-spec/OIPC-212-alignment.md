@@ -1,5 +1,9 @@
 # VATN OIPC v2.12 Wire Protocol Alignment
 
+> **Note:** OIPC **v2.13** is an additive, backward-compatible delta over v2.12 (unchanged V3
+> header + HELLO, `ver_minor` stays `12`). See
+> [OIPC-213-alignment.md](./OIPC-213-alignment.md) for the Greeting/auth_token/CONNECT additions.
+
 This document maps the **OIPC v2.12 "Relentless"** wire protocol to the VATN plugin
 contract. It is a language-neutral reference for implementors writing plugins in Python,
 Rust, C, or any other language.

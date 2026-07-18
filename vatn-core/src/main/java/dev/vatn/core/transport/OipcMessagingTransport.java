@@ -76,6 +76,10 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
     private static final int CHUNK_SIZE       = Integer.getInteger("vatn.ipc.chunk_size",       1024 * 1024);
     private static final int MAX_MESSAGE_SIZE = Integer.getInteger("vatn.ipc.max_message_size", 256 * 1024 * 1024);
 
+    // Upper bound on the total bytes read for an HTTP CONNECT request (until the terminating blank
+    // line). Guards against a malicious client streaming a never-terminating header.
+    private static final int MAX_CONNECT_HEADER_BYTES = 8192;
+
     private static final java.util.regex.Pattern CONNECT_PATTERN =
         java.util.regex.Pattern.compile("^CONNECT\\s+([^:]+):(\\d+)\\s+HTTP/\\d\\.\\d$",
             java.util.regex.Pattern.CASE_INSENSITIVE);
@@ -264,9 +268,16 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
     private boolean handleConnectTunnel(PushbackInputStream in, ClientConnection client) throws IOException {
         StringBuilder request = new StringBuilder("C");
         int state = 0; // counts consecutive '\r\n' to detect the terminating blank line
+        int totalBytes = 1; // the leading 'C' has already been read by the caller
         int b;
         String targetHostPort = null;
         while ((b = in.read()) != -1) {
+            if (++totalBytes > MAX_CONNECT_HEADER_BYTES) {
+                log.warn("HTTP CONNECT request exceeded {} bytes — closing connection",
+                    MAX_CONNECT_HEADER_BYTES);
+                client.close();
+                return false;
+            }
             if (b == '\r') {
                 int c = in.read();
                 if (c == '\n') {

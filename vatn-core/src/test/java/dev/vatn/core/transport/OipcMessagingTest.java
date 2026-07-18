@@ -211,6 +211,55 @@ public class OipcMessagingTest {
     }
 
     @Test
+    public void testHttpConnectHeaderTooLarge() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            transport.subscribe("binary.ingress", p -> latch.countDown());
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                // A CONNECT request whose header never terminates (no blank line) and vastly
+                // exceeds the 8192-byte cap → server must close the connection.
+                int port = transport.getConnectionPort();
+                StringBuilder garbage = new StringBuilder();
+                garbage.append("CONNECT 127.0.0.1:").append(port).append(" HTTP/1.1\r\n");
+                while (garbage.length() < 16384) {
+                    garbage.append("X-Garbage-").append(garbage.length())
+                           .append(": ").append("padding-padding-padding\r\n");
+                }
+                // NOTE: intentionally NOT terminating with a blank line.
+                client.getOutputStream().write(garbage.toString().getBytes(StandardCharsets.US_ASCII));
+                client.getOutputStream().flush();
+
+                // Connection should be closed by the server — no 200, no payload.
+                assertFalse(latch.await(1, TimeUnit.SECONDS),
+                    "Payload must NOT be received when CONNECT header exceeds the size cap");
+
+                // The server should have closed the socket. On a hard close this surfaces as EOF
+                // (read == -1) or a connection reset; either proves the connection is gone.
+                client.setSoTimeout(1000);
+                boolean closed;
+                try {
+                    int eof = client.getInputStream().read();
+                    closed = (eof == -1);
+                } catch (java.net.SocketException e) {
+                    closed = true; // connection reset == server closed it
+                }
+                assertTrue(closed,
+                    "Server should have closed the connection on over-limit CONNECT header");
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
     public void testV213IdentitySurfaced() throws Exception {
         String prevRequire = System.getProperty("vatn.ipc.require_auth_token");
         String prevToken = System.getProperty("vatn.ipc.auth_token");
