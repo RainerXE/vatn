@@ -1,6 +1,7 @@
 package dev.vatn.core.transport;
 
 import dev.vatn.api.VMessaging;
+import dev.vatn.api.VatnSecurity;
 import dev.vatn.api.VTransport;
 import dev.vatn.core.VJsonImpl;
 import org.slf4j.Logger;
@@ -391,7 +392,7 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
                 MessageReassembler ra = reassemblers.computeIfAbsent(key, k -> new MessageReassembler());
                 if (ra.addChunk(seqIdx, payload)) {
                     if ((flags & MASK_LAST) != 0) {
-                        dispatchToSubscribers("binary.ingress", ra.assemble());
+                        dispatchToSubscribers(client, "binary.ingress", ra.assemble());
                         reassemblers.remove(key);
                         sendFeedback(client, (byte) 0x01, msgId, 0); // ACK
                     }
@@ -400,7 +401,7 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
                     sendFeedback(client, (byte) 0x02, msgId, seqIdx); // NACK
                 }
             } else {
-                dispatchToSubscribers("binary.ingress", payload);
+                dispatchToSubscribers(client, "binary.ingress", payload);
             }
 
             // Read next 'OIPC' magic prefix before looping.
@@ -475,6 +476,23 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
         return readFully(in, buf, 0, n);
     }
 
+    private void dispatchToSubscribers(ClientConnection client, String channel, byte[] payload) {
+        List<Consumer<byte[]>> consumers = subscribers.get(channel);
+        if (consumers != null) {
+            consumers.forEach(c -> Thread.ofVirtual().start(() ->
+                ScopedValue.where(VatnSecurity.CURRENT_AUTH_TOKEN, client.authToken)
+                    .where(VatnSecurity.CURRENT_CLIENT_ID, client.clientId)
+                    .run(() -> {
+                        try { c.accept(payload); }
+                        catch (Exception e) { log.error("Subscriber exception on channel {}", channel, e); }
+                    })));
+        }
+    }
+
+    /**
+     * Local (in-process) dispatch with no per-connection identity context
+     * (used by {@link #publish(String, byte[])} which is not client-driven).
+     */
     private void dispatchToSubscribers(String channel, byte[] payload) {
         List<Consumer<byte[]>> consumers = subscribers.get(channel);
         if (consumers != null) {

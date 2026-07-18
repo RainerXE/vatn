@@ -210,6 +210,50 @@ public class OipcMessagingTest {
         }
     }
 
+    @Test
+    public void testV213IdentitySurfaced() throws Exception {
+        String prevRequire = System.getProperty("vatn.ipc.require_auth_token");
+        String prevToken = System.getProperty("vatn.ipc.auth_token");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.require_auth_token", "true");
+        System.setProperty("vatn.ipc.auth_token", "secret123");
+        System.setProperty("vatn.ipc.force_tcp", "true"); // auth only enforced on non-UDS
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<byte[]> seenClientId = new AtomicReference<>();
+            AtomicReference<byte[]> seenAuthToken = new AtomicReference<>();
+            transport.subscribe("binary.ingress", p -> {
+                seenClientId.set(dev.vatn.api.VatnSecurity.CURRENT_CLIENT_ID.get());
+                seenAuthToken.set(dev.vatn.api.VatnSecurity.CURRENT_AUTH_TOKEN.get());
+                latch.countDown();
+            });
+
+            try (SocketChannel client = connectToTransport(transport)) {
+                byte[] expectedClientId = new byte[16];
+                byte[] cidSrc = "cli-xyz".getBytes(StandardCharsets.UTF_8);
+                System.arraycopy(cidSrc, 0, expectedClientId, 0, Math.min(cidSrc.length, 16));
+                byte[] greeting = OipcGreeting.build("cli-xyz",
+                    OipcGreeting.tokenBytes("secret123"), 0x02);
+                client.write(ByteBuffer.wrap(greeting));
+
+                sendHelloThenData(client, "identityData");
+
+                assertTrue(latch.await(2, TimeUnit.SECONDS),
+                    "Did not receive routed payload for v2.13 identity test");
+                assertArrayEquals(expectedClientId, seenClientId.get(),
+                    "CURRENT_CLIENT_ID must equal the Greeting client_id (16-byte, padded)");
+                assertArrayEquals(OipcGreeting.tokenBytes("secret123"), seenAuthToken.get(),
+                    "CURRENT_AUTH_TOKEN must equal the Greeting auth_token");
+            }
+        } finally {
+            restoreProp("vatn.ipc.require_auth_token", prevRequire);
+            restoreProp("vatn.ipc.auth_token", prevToken);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
     private static java.net.Socket rawSocket(OipcMessagingTransport transport) throws Exception {
         java.net.Socket s = new java.net.Socket();
         s.connect(new InetSocketAddress("127.0.0.1", transport.getConnectionPort()));

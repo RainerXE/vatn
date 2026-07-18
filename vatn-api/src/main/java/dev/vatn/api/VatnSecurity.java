@@ -17,5 +17,15 @@ public final class VatnSecurity {
      */
     public static final ScopedValue<dev.vatn.api.security.VTrustLevel> CURRENT_TRUST_LEVEL = ScopedValue.newInstance();
 
+    /**
+     * The v2.13 per-connection auth token (24-byte identity), or null if not presented.
+     */
+    public static final ScopedValue<byte[]> CURRENT_AUTH_TOKEN = ScopedValue.newInstance();
+
+    /**
+     * The v2.13 per-connection stable client id (16 bytes), or null if not presented.
+     */
+    public static final ScopedValue<byte[]> CURRENT_CLIENT_ID = ScopedValue.newInstance();
+
     private VatnSecurity() {}
 }
