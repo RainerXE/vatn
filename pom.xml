@@ -22,6 +22,7 @@
         <module>vatn-test</module>
         <module>vatn-bench</module>
         <module>vatn-webadmin</module>
+        <module>vatn-contract-test</module>
         <module>plugins</module>
     </modules>
     

@@ -1,9 +1,0 @@
-{
-  "id": "dev.chaos.hang",
-  "name": "Infinite Looper",
-  "version": "1.0.0",
-  "execution": {
-    "mode": "OUT_OF_PROCESS_BIN",
-    "entrypoint": "./looper"
-  }
-}
