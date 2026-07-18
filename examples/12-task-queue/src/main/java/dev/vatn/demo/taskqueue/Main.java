@@ -12,12 +12,12 @@ import dev.vatn.core.VNodeRunner;
  *   mvn package
  *
  * Run:
- *   java -jar target/01-task-queue-1.0-SNAPSHOT.jar
+ *   java -jar target/12-task-queue-1.0-alpha.14.jar
  */
 public class Main {
     public static void main(String[] args) {
-        VNodeRunner.create(8080)
-            .addPlugin(new OrderPipelinePlugin())
-            .start();
+        VNodeRunner runner = VNodeRunner.create(8080);
+        runner.addPlugin(new OrderPipelinePlugin());
+        runner.start();
     }
 }
