@@ -8,7 +8,7 @@
     <parent>
         <groupId>dev.vatn.examples</groupId>
         <artifactId>vatn-examples-parent</artifactId>
-        <version>.1.0-alpha.14</version>
+        <version>1.0-alpha.14</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
