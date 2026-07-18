@@ -82,7 +82,7 @@ public class VNodeRunner {
     /**
      * Sets a custom database path for this node instance, overriding the default
      * {@code ~/.vatn/database.db}. Use this when the application should store its
-     * data in an application-specific directory (e.g. {@code ~/.frejay/frejay.db})
+     * data in an application-specific directory (e.g. {@code ~/.myapp/myapp.db})
      * to avoid sharing or polluting the VATN framework's own database.
      *
      * @param path absolute path to the SQLite database file; parent directories are

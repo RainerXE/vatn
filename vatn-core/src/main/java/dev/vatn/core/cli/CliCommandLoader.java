@@ -13,7 +13,7 @@ import java.util.ServiceLoader;
 import java.util.stream.Stream;
 
 /**
- * Discovers {@link VCliCommand} contributions for a host CLI (vatn, frejay, …) via
+ * Discovers {@link VCliCommand} contributions for a host CLI (vatn, …) via
  * {@link ServiceLoader}. This is the reusable, picocli-free half of the extensibility
  * mechanism (DCN-EXT-09); a host wraps the results in its own CLI library.
  */
