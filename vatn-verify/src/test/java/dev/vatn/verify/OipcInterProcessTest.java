@@ -2,7 +2,7 @@ package dev.vatn.verify;
 
 import dev.vatn.core.transport.OipcMessagingTransport;
 import org.junit.jupiter.api.*;
-
+import org.junit.jupiter.api.Tag;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests: (Sizes: 64B, 1KB, 16KB, 128KB, 1MB, 5MB) x (Protocols: BINARY, JSON_BASE64, JSON_NATIVE).
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Tag("integration")
 public class OipcInterProcessTest {
 
     private static final int[] SIZES = { 64, 1024, 16_384, 131_072, 1_048_576, 5_242_880 };

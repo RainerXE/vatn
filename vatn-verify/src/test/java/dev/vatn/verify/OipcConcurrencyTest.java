@@ -4,6 +4,7 @@ import dev.vatn.core.transport.OipcMessagingTransport;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.io.File;
 import java.net.InetSocketAddress;
@@ -45,6 +46,7 @@ public class OipcConcurrencyTest {
     }
 
     @Test
+    @Tag("integration")
     void testMultiClientInterleaving() throws Exception {
         int clientCount = 10; 
         int msgSize = 1024 * 1024 * 2; // 2MB
@@ -78,6 +80,7 @@ public class OipcConcurrencyTest {
     }
 
     @Test
+    @Tag("integration")
     void testBroadcastFanOut() throws Exception {
         int clientCount = 5;
         AtomicLong totalReceivedSinks = new AtomicLong();
