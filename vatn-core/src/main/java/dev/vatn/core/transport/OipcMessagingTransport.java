@@ -58,6 +58,11 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
     private static final int MASK_CONTROL  = 0x20;
     // V3 header: magic(4) + version(1) + flags(1) + payload_length(4) + message_id(4) + sequence_idx(4) = 18
     static final int V3_HEADER_SIZE = 18;
+
+    // A client must complete its Greeting/bootstrap within this window or the connection is dropped.
+    // Bounds the handshake phase so a peer that opens a socket but never finishes the bootstrap
+    // (or sends a truncated/ambiguous frame) cannot pin a virtual thread indefinitely.
+    private static final long HANDSHAKE_TIMEOUT_MS = Long.getLong("vatn.ipc.handshake_timeout_ms", 5_000);
     // Remaining header bytes after the version byte (flags + len + msgId + seqIdx = 1+4+4+4 = 13)
     private static final int V3_HEADER_AFTER_VERSION = 13;
 
@@ -215,7 +220,19 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
             if (discriminator == -1) { client.close(); return; }
 
             if (discriminator == 2) {          // v2.13 Greeting bootstrap
-                Greeting greeting = parseGreeting(in);
+                // Read the remaining Greeting bytes under a deadline so a truncated/ambiguous
+                // frame cannot pin the (virtual) thread (see readBounded / HANDSHAKE_TIMEOUT_MS).
+                ByteBuffer gb = ByteBuffer.allocate(GREETING_SIZE - 5);
+                long deadline = System.nanoTime()
+                        + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(HANDSHAKE_TIMEOUT_MS);
+                int got = readBounded(client.channel, gb, deadline);
+                if (got < gb.capacity()) {
+                    log.warn("Truncated OIPC v2.13 Greeting (got {} of {} bytes) — closing connection",
+                        got, gb.capacity());
+                    client.close();
+                    return;
+                }
+                Greeting greeting = parseGreeting(new java.io.ByteArrayInputStream(gb.array()));
                 if (greeting == null) { client.close(); return; }
                 if (!validateAuthToken(greeting.authToken)) {
                     log.warn("OIPC v2.13 auth_token mismatch — closing connection before HELLO");
@@ -238,6 +255,10 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
             log.error("Client connection error", e);
             client.close();
         } finally {
+            // The connection lifecycle is owned here: every return path above (protocol violation,
+            // handshake reject, or normal loop exit) must end with the socket being torn down so a
+            // peer can never block on a read against an open-but-abandoned channel.
+            client.close();
             activeClients.remove(client);
             reassemblers.keySet().removeIf(k -> k.startsWith(client.id + ":"));
         }
