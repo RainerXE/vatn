@@ -23,6 +23,11 @@ import java.util.function.Supplier;
  */
 public class VNodeRunner {
     private static final Logger logger = LoggerFactory.getLogger(VNodeRunner.class);
+
+    // Plugin lifecycle bounds. A misbehaving plugin (per the security trust model) must never be
+    // able to hang node boot or shutdown, so init and shutdown are both time-boxed and interruptible.
+    private static final long PLUGIN_INIT_TIMEOUT_MS = Long.getLong("vatn.plugin.init_timeout_ms", 15_000);
+    private static final long PLUGIN_SHUTDOWN_TIMEOUT_MS = Long.getLong("vatn.plugin.shutdown_timeout_ms", 10_000);
     
     private final int port;
     private final java.nio.file.Path identityPath;
@@ -82,7 +87,7 @@ public class VNodeRunner {
     /**
      * Sets a custom database path for this node instance, overriding the default
      * {@code ~/.vatn/database.db}. Use this when the application should store its
-     * data in an application-specific directory (e.g. {@code ~/.myapp/myapp.db})
+     * data in an application-specific directory (e.g. {@code ~/.frejay/frejay.db})
      * to avoid sharing or polluting the VATN framework's own database.
      *
      * @param path absolute path to the SQLite database file; parent directories are
@@ -298,13 +303,32 @@ public class VNodeRunner {
             new dev.vatn.core.rpc.VRpcServiceImpl(context, context.getMessaging());
         context.registerService(dev.vatn.api.VRpcService.class, rpcService);
 
+        VPluginManagerImpl pluginManager = new VPluginManagerImpl(hostedPlugins, context);
+
         for (VNodePlugin plugin : hostedPlugins) {
-            logger.info("Initializing plugin: {} ({})", plugin.getName(), plugin.getId());
-            ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
-                .run(() -> plugin.onInitialize(context));
+            String pluginId = safePluginId(plugin);
+            logger.info("Initializing plugin: {} ({})", safePluginName(plugin), pluginId);
+            Thread initThread = Thread.ofVirtual().name("vatn-plugin-init-" + pluginId)
+                .start(() -> ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, pluginId)
+                    .run(() -> plugin.onInitialize(context)));
+            try {
+                initThread.join(PLUGIN_INIT_TIMEOUT_MS);
+                if (initThread.isAlive()) {
+                    initThread.interrupt();
+                    throw new java.util.concurrent.TimeoutException(
+                        "Plugin initialization exceeded " + PLUGIN_INIT_TIMEOUT_MS + " ms");
+                }
+                pluginManager.markRunning(pluginId);
+            } catch (java.util.concurrent.TimeoutException e) {
+                pluginManager.markError(pluginId, new RuntimeException(
+                    "Plugin initialization timed out after " + PLUGIN_INIT_TIMEOUT_MS + " ms"));
+                logger.error("Plugin {} initialization timed out — isolated, node continues", pluginId, e);
+            } catch (Exception e) {
+                pluginManager.markError(pluginId, e);
+                logger.error("Plugin {} initialization failed — isolated, node continues", pluginId, e);
+            }
         }
-        context.registerService(dev.vatn.api.VPluginManager.class,
-                new VPluginManagerImpl(hostedPlugins, context));
+        context.registerService(dev.vatn.api.VPluginManager.class, pluginManager);
 
         // 1.5 Collect HTTP services registered by plugins via context.register()
         java.util.List<dev.vatn.api.VHttpFilter> httpFilters = context.getFilters();
@@ -435,7 +459,10 @@ public class VNodeRunner {
         
         var webServerBuilder = WebServer.builder()
                 .port(port)
-                .routing(routing);
+                .routing(routing)
+                .maxPayloadSize(Long.getLong("vatn.http.max_payload_bytes", 16 * 1024 * 1024))
+                .idleConnectionTimeout(java.time.Duration.ofMillis(
+                        Long.getLong("vatn.http.idle_timeout_ms", 10_000)));
 
         for (WsRouting.Builder ws : webSocketRoutings) {
             webServerBuilder.addRouting(ws);
@@ -509,7 +536,8 @@ public class VNodeRunner {
                 .ifPresent(dev.vatn.api.workflow.VDagScheduler::stop);
             for (Class<? extends dev.vatn.api.VService> svcType : java.util.List.of(
                     dev.vatn.api.VClockService.class,
-                    dev.vatn.api.workflow.VJobQueue.class)) {
+                    dev.vatn.api.workflow.VJobQueue.class,
+                    dev.vatn.api.workflow.VQueueService.class)) {
                 context.getService(svcType).ifPresent(svc -> {
                     if (svc instanceof AutoCloseable) {
                         try { ((AutoCloseable) svc).close(); }
@@ -523,8 +551,31 @@ public class VNodeRunner {
             runtime.stop();
         }
         for (VNodePlugin plugin : hostedPlugins) {
-            ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
-                .run(() -> plugin.onShutdown());
+            String pluginId = safePluginId(plugin);
+            Thread shutdownThread = Thread.ofVirtual().name("vatn-plugin-shutdown-" + pluginId)
+                .start(() -> ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, pluginId)
+                    .run(() -> plugin.onShutdown()));
+            try {
+                shutdownThread.join(PLUGIN_SHUTDOWN_TIMEOUT_MS);
+                if (shutdownThread.isAlive()) {
+                    shutdownThread.interrupt();
+                    logger.warn("Plugin {} onShutdown did not complete within {} ms — interrupting",
+                        pluginId, PLUGIN_SHUTDOWN_TIMEOUT_MS);
+                }
+            } catch (InterruptedException ie) {
+                shutdownThread.interrupt();
+                Thread.currentThread().interrupt();
+            }
         }
+    }
+
+    private static String safePluginId(VNodePlugin plugin) {
+        String id = plugin == null ? null : plugin.getId();
+        return (id == null || id.isBlank()) ? "<unknown>" : id;
+    }
+
+    private static String safePluginName(VNodePlugin plugin) {
+        String name = plugin == null ? null : plugin.getName();
+        return (name == null || name.isBlank()) ? "<unknown>" : name;
     }
 }

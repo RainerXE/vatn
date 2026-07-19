@@ -80,12 +80,6 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
     // line). Guards against a malicious client streaming a never-terminating header.
     private static final int MAX_CONNECT_HEADER_BYTES = 8192;
 
-    // Bounds how long the server blocks reading the initial handshake (Greeting / HELLO) before
-    // dropping the connection. Prevents a client that opens a socket but never completes the
-    // handshake (or sends a partial/early frame) from pinning a virtual thread indefinitely.
-    // Once the handshake completes the timeout is cleared so steady-state streaming is unaffected.
-    private static final int HANDSHAKE_TIMEOUT_MS = 5_000;
-
     private static final java.util.regex.Pattern CONNECT_PATTERN =
         java.util.regex.Pattern.compile("^CONNECT\\s+([^:]+):(\\d+)\\s+HTTP/\\d\\.\\d$",
             java.util.regex.Pattern.CASE_INSENSITIVE);
@@ -221,7 +215,7 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
             if (discriminator == -1) { client.close(); return; }
 
             if (discriminator == 2) {          // v2.13 Greeting bootstrap
-                Greeting greeting = parseGreeting(client);
+                Greeting greeting = parseGreeting(in);
                 if (greeting == null) { client.close(); return; }
                 if (!validateAuthToken(greeting.authToken)) {
                     log.warn("OIPC v2.13 auth_token mismatch — closing connection before HELLO");
@@ -246,7 +240,6 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
         } finally {
             activeClients.remove(client);
             reassemblers.keySet().removeIf(k -> k.startsWith(client.id + ":"));
-            client.close();
         }
     }
 
@@ -436,11 +429,10 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
      * Parses the remaining 60 bytes of a v2.13 Greeting. The 4-byte magic and the ver_major
      * byte (offset 4) have already been consumed. Returns {@code null} on truncation.
      */
-    private Greeting parseGreeting(ClientConnection client) throws IOException {
+    private Greeting parseGreeting(InputStream in) throws IOException {
         byte[] rest = new byte[GREETING_SIZE - 5]; // 59 bytes: offsets 5..63
-        long deadline = System.nanoTime() + HANDSHAKE_TIMEOUT_MS * 1_000_000L;
-        if (readBounded(client.channel, ByteBuffer.wrap(rest), deadline) < rest.length) {
-            log.warn("Truncated or stalled OIPC v2.13 Greeting — dropping connection");
+        if (readFully(in, rest, rest.length) < rest.length) {
+            log.warn("Truncated OIPC v2.13 Greeting");
             return null;
         }
         ByteBuffer bb = ByteBuffer.wrap(rest).order(ByteOrder.LITTLE_ENDIAN);
@@ -457,33 +449,6 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
         bb.get(authToken);              // 35..58 auth_token
         // 59..63 reserved — ignored
         return new Greeting(clientId, authToken, flags, transport);
-    }
-
-    /**
-     * Reads {@code buf.remaining()} bytes from the channel, enforcing a wall-clock {@code deadline}.
-     * Switches the channel to non-blocking and polls so a client that opens a socket but never
-     * completes the handshake cannot pin the (virtual) thread indefinitely. Returns the number of
-     * bytes actually read, or -1 on EOF before the buffer is filled.
-     */
-    private static int readBounded(SocketChannel ch, ByteBuffer buf, long deadlineNanos) throws IOException {
-        boolean wasBlocking = ch.isBlocking();
-        ch.configureBlocking(false);
-        try {
-            int total = 0;
-            while (buf.hasRemaining()) {
-                if (System.nanoTime() > deadlineNanos) return total;
-                int r = ch.read(buf);
-                if (r == -1) return total == 0 ? -1 : total;
-                if (r == 0) {
-                    try { Thread.sleep(5); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return total; }
-                } else {
-                    total += r;
-                }
-            }
-            return total;
-        } finally {
-            ch.configureBlocking(wasBlocking);
-        }
     }
 
     /**
@@ -520,6 +485,33 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
 
     private static int readFully(InputStream in, byte[] buf, int n) throws IOException {
         return readFully(in, buf, 0, n);
+    }
+
+    /**
+     * Reads {@code buf.remaining()} bytes from the channel, enforcing a wall-clock {@code deadline}.
+     * Switches the channel to non-blocking and polls so a client that opens a socket but never
+     * completes the handshake cannot pin the (virtual) thread indefinitely. Returns the number of
+     * bytes actually read, or -1 on EOF before the buffer is filled.
+     */
+    private static int readBounded(SocketChannel ch, ByteBuffer buf, long deadlineNanos) throws IOException {
+        boolean wasBlocking = ch.isBlocking();
+        ch.configureBlocking(false);
+        try {
+            int total = 0;
+            while (buf.hasRemaining()) {
+                if (System.nanoTime() > deadlineNanos) return total;
+                int r = ch.read(buf);
+                if (r == -1) return total == 0 ? -1 : total;
+                if (r == 0) {
+                    try { Thread.sleep(5); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return total; }
+                } else {
+                    total += r;
+                }
+            }
+            return total;
+        } finally {
+            ch.configureBlocking(true);
+        }
     }
 
     private void dispatchToSubscribers(ClientConnection client, String channel, byte[] payload) {
@@ -644,7 +636,6 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
 
         client.peerNodeId = nodeId;
         client.handshakeComplete = true;
-        try { client.channel.socket().setSoTimeout(0); } catch (IOException ignore) {}
         log.info("OIPC Handshake OK: {} (V2.{})", nodeId, minor);
         sendFeedback(client, (byte) 0x01, msgId, 0); // ACK
     }
