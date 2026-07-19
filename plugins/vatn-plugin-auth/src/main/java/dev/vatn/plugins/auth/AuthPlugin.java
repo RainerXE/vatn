@@ -116,7 +116,13 @@ public class AuthPlugin implements VNodePlugin {
     // -------------------------------------------------------------------------
 
     private void handleLogin(VHttpRequest req, VHttpResponse res) throws Exception {
-        Map<String, String> body = parseBody(req.getBody());
+        Map<String, String> body;
+        try {
+            body = parseBody(req.getBody());
+        } catch (BadRequestException e) {
+            res.status(400).sendJson(errorJson("Malformed request body"));
+            return;
+        }
         String username = body.get("username");
         String password = body.get("password");
 
@@ -135,7 +141,13 @@ public class AuthPlugin implements VNodePlugin {
     }
 
     private void handleRefresh(VHttpRequest req, VHttpResponse res) throws Exception {
-        Map<String, String> body = parseBody(req.getBody());
+        Map<String, String> body;
+        try {
+            body = parseBody(req.getBody());
+        } catch (BadRequestException e) {
+            res.status(400).sendJson(errorJson("Malformed request body"));
+            return;
+        }
         String refreshToken = body.get("refreshToken");
 
         if (refreshToken == null || refreshToken.isBlank()) {
@@ -170,7 +182,11 @@ public class AuthPlugin implements VNodePlugin {
         if (body == null || body.isBlank()) {
             return Map.of();
         }
-        return mapper.readValue(body, new TypeReference<Map<String, String>>() {});
+        try {
+            return mapper.readValue(body, new TypeReference<Map<String, String>>() {});
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new BadRequestException("Malformed request body", e);
+        }
     }
 
     /**
