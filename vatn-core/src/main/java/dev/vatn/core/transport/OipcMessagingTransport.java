@@ -245,6 +245,13 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
                 // Continue into the V3 loop; the next byte read will be the V3 wire_version.
                 handleBinaryClient(client, in, -1);
             } else if (discriminator == 3) {   // legacy v2.12 client — this byte IS the V3 version
+                if (authRequiredOnTcp()) {
+                    // v2.12 clients cannot present an auth_token — when the operator requires
+                    // token auth on TCP, the legacy path must not become a bypass.
+                    log.warn("Legacy v2.12 client rejected — vatn.ipc.require_auth_token is set (TCP)");
+                    client.close();
+                    return;
+                }
                 handleBinaryClient(client, in, 3);
             } else {
                 log.warn("Unsupported OIPC discriminator {} after magic — expected 2 (Greeting) or 3 (V3)",
@@ -478,9 +485,18 @@ public class OipcMessagingTransport implements VMessaging, AutoCloseable {
      * (UDS trust is derived from filesystem permissions).
      */
     private boolean validateAuthToken(byte[] presented) {
-        if (!Boolean.getBoolean("vatn.ipc.require_auth_token") || isUds) return true;
+        if (!authRequiredOnTcp()) return true;
         byte[] expected = expectedAuthTokenBytes();
         return java.security.MessageDigest.isEqual(expected, presented);
+    }
+
+    /**
+     * Whether token auth is enforced for this connection: only when
+     * {@code vatn.ipc.require_auth_token} is set AND the transport is NOT a Unix Domain Socket
+     * (UDS trust is derived from filesystem permissions).
+     */
+    private boolean authRequiredOnTcp() {
+        return Boolean.getBoolean("vatn.ipc.require_auth_token") && !isUds;
     }
 
     private static byte[] expectedAuthTokenBytes() {
