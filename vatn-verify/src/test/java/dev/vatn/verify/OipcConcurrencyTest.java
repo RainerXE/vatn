@@ -97,16 +97,18 @@ public class OipcConcurrencyTest {
         for (SocketChannel sc : clients) {
             Thread.ofVirtual().start(() -> {
                 try {
+                    // V3 18-byte header: magic(0-3) version(4) flags(5) length(6-9) msgId(10-13) seq(14-17)
                     ByteBuffer header = ByteBuffer.allocate(18).order(ByteOrder.BIG_ENDIAN);
-                    while (sc.read(header) > 0) {
+                    while (true) {
+                        header.clear();
+                        readFully(sc, header);
                         header.flip();
-                        header.position(6); // flags
+                        header.position(5); // flags at 5, length at 6-9
                         byte flags = header.get();
                         int len = header.getInt();
                         ByteBuffer payload = ByteBuffer.allocate(len);
                         readFully(sc, payload);
                         totalReceivedSinks.incrementAndGet();
-                        header.clear();
                     }
                 } catch (Exception ignore) {}
             });

@@ -31,7 +31,7 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- ===== Centralized dependency versions (single source of truth) ===== -->
-        <helidon.version>4.4.1</helidon.version>
+        <helidon.version>4.5.0</helidon.version>
         <jackson.version>2.16.1</jackson.version>
         <pf4j.version>3.9.0</pf4j.version>
         <junit.version>5.10.0</junit.version>

@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.*;
 public class OipcInterProcessTest {
 
     private static final int[] SIZES = { 64, 1024, 16_384, 131_072, 1_048_576, 5_242_880 };
-    private static final String[] PROTOCOLS = { "BINARY", "JSON_BASE64" /*, "JSON_NATIVE" */ }; // JSON_NATIVE skipped in generic test due to binary data constraints
+    // OIPC v2.13 only defines the V3 binary wire format — the JSON protocol modes were
+    // vestigial from OIPC V2 and are rejected by the transport (bad magic). BINARY only.
+    private static final String[] PROTOCOLS = { "BINARY" };
     
     private static final int TARGET_COUNT    = 10_000; // Lower count for matrix to keep test time reasonable
     private static final int TIMEOUT_SECONDS = 30;
@@ -36,18 +38,24 @@ public class OipcInterProcessTest {
     @BeforeAll
     static void resolveArtefacts() throws Exception {
         Path cliTarget = resolveCliTarget();
-        File primaryJar = cliTarget.resolve("vatn-cli-bench.jar").toFile();
-        if (primaryJar.exists()) {
-            vatncliJar = primaryJar.getAbsolutePath();
-        } else {
-            Path siblingTarget = cliTarget.getParent().getParent().resolve("vatn-cli/target");
-            if (Files.isDirectory(siblingTarget)) {
-                File[] jars = siblingTarget.toFile().listFiles((d, n) ->
-                        n.startsWith("vatn-cli") && n.endsWith(".jar") && !n.contains("original"));
-                if (jars != null && jars.length > 0) vatncliJar = jars[0].getAbsolutePath();
-            }
+        // Prefer the freshly built reactor artifact from the sibling vatn-cli module (relative to
+        // the module working directory under surefire) so the matrix always benchmarks the CURRENT
+        // code. Fall back to a cached target/benchmark jar only when the module build is absent.
+        vatncliJar = newestCliJar(Path.of("../vatn-cli/target"));
+        if (vatncliJar == null) {
+            File primaryJar = cliTarget.resolve("vatn-cli-bench.jar").toFile();
+            if (primaryJar.exists()) vatncliJar = primaryJar.getAbsolutePath();
         }
         compileAotBinary(cliTarget);
+    }
+
+    private static String newestCliJar(Path dir) {
+        File[] jars = Files.isDirectory(dir) ? dir.toFile().listFiles((d, n) ->
+                n.startsWith("vatn-cli") && n.endsWith(".jar") && !n.contains("original")) : null;
+        if (jars == null || jars.length == 0) return null;
+        return java.util.Arrays.stream(jars)
+                .max(java.util.Comparator.comparingLong(File::lastModified))
+                .get().getAbsolutePath();
     }
 
     private static void compileAotBinary(Path benchmarkDir) throws Exception {

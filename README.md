@@ -579,7 +579,7 @@ SOFTWARE.
 
 | Library | Version | License | Used in |
 |---------|---------|---------|---------| 
-| [Eclipse Helidon SE](https://helidon.io/) | 4.4.1 | Apache 2.0 | HTTP, WebSocket, SSE (`vatn-core`) |
+| [Eclipse Helidon SE](https://helidon.io/) | 4.5.0 | Apache 2.0 | HTTP, WebSocket, SSE (`vatn-core`) |
 | [Jackson Databind](https://github.com/FasterXML/jackson-databind) | 2.16.1 | Apache 2.0 | JSON serialisation |
 | [PF4J](https://pf4j.org/) | 3.9.0 | Apache 2.0 | Plugin loader and lifecycle |
 | [Picocli](https://picocli.info/) | 4.7.5 | Apache 2.0 | CLI framework (`vatn-cli`) |

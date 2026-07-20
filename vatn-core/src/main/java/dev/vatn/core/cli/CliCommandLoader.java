@@ -24,7 +24,18 @@ public final class CliCommandLoader {
     /** Commands visible to the given classloader (services on the host classpath). */
     public static List<VCliCommand> discover(ClassLoader cl) {
         var out = new ArrayList<VCliCommand>();
-        for (VCliCommand c : ServiceLoader.load(VCliCommand.class, cl)) {
+        var it = ServiceLoader.load(VCliCommand.class, cl).iterator();
+        // A single provider that cannot be loaded (incompatible/corrupt plugin jar, or a class
+        // not present in a native image) must not kill the whole host CLI. The iterator cannot be
+        // safely advanced after such a failure, so discovery stops there but keeps prior results.
+        while (true) {
+            final VCliCommand c;
+            try {
+                if (!it.hasNext()) break;
+                c = it.next();
+            } catch (java.util.ServiceConfigurationError | LinkageError e) {
+                break;
+            }
             out.add(c);
         }
         return out;
@@ -33,9 +44,11 @@ public final class CliCommandLoader {
     /**
      * Commands contributed by plugin jars in {@code pluginsDir}, loaded over a child classloader
      * parented to {@code parent} (so {@code vatn-api}/core classes are shared). Missing or empty
-     * directory → empty list.
+     * directory → empty list. Always empty in a native image: the closed world cannot load
+     * classes from external jars at runtime (same pattern as {@code NativeImagePluginManager}).
      */
     public static List<VCliCommand> discoverFrom(Path pluginsDir, ClassLoader parent) {
+        if (org.graalvm.nativeimage.ImageInfo.inImageCode()) return List.of();
         if (pluginsDir == null || !Files.isDirectory(pluginsDir)) return List.of();
         URL[] jars;
         try (Stream<Path> s = Files.list(pluginsDir)) {
