@@ -84,8 +84,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <!-- Default gate: adversarial tests RUN (Phase 2 — they are the security gate,
+                     not an optional extra). Only heavy cross-process integration benchmarks
+                     stay opt-in via -Pintegration. -->
                 <configuration>
-                    <excludedGroups>adversarial,integration</excludedGroups>
+                    <excludedGroups>integration</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>

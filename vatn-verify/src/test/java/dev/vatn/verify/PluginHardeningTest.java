@@ -35,6 +35,14 @@ class PluginHardeningTest {
 
     @TempDir Path tempDir;
 
+    private static final String ORIGINAL_USER_HOME = System.getProperty("user.home");
+
+    /** Several tests point user.home at their temp dir; restore it so later classes aren't poisoned. */
+    @org.junit.jupiter.api.AfterAll
+    static void restoreUserHome() {
+        System.setProperty("user.home", ORIGINAL_USER_HOME);
+    }
+
     // =========================================================================
     // 1. Plugin null returns — must not cause NPE
     // =========================================================================
