@@ -54,7 +54,7 @@ public class VatnWebAdmin {
             if (adminUser.equals(username) && adminPass.equals(password)) {
                 return Map.of("role", "admin");
             }
-            throw new RuntimeException("Invalid credentials");
+            throw new dev.vatn.plugins.auth.InvalidCredentialsException("Invalid credentials");
         });
 
         VNodeRunner runner = VNodeRunner.create(port)

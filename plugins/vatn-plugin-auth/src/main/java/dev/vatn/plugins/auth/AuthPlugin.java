@@ -137,6 +137,11 @@ public class AuthPlugin implements VNodePlugin {
         } catch (InvalidCredentialsException e) {
             log.debug("Login failed for '{}': {}", username, e.getMessage());
             res.status(401).sendJson(errorJson("Invalid credentials"));
+        } catch (RuntimeException e) {
+            // Validators are arbitrary user code; a validator that throws anything other than
+            // InvalidCredentialsException must never leak a 500 oracle to the client.
+            log.warn("Credential validator failed unexpectedly for '{}': {}", username, e.toString());
+            res.status(401).sendJson(errorJson("Invalid credentials"));
         }
     }
 
