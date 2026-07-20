@@ -36,6 +36,12 @@
         </dependency>
         <dependency>
             <groupId>dev.vatn.plugins</groupId>
+            <artifactId>vatn-plugin-cors</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>dev.vatn.plugins</groupId>
             <artifactId>vatn-plugin-indexer</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
