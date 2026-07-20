@@ -354,4 +354,181 @@ class HttpAdversarialTest {
             }
         }
     }
+
+    // =========================================================================
+    // 9. Header abuse & request smuggling (Phase 2, threat-model S1)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Oversized single header (64KB value) → 4xx or close, never hang/5xx")
+    @Timeout(15)
+    void oversizedHeaderBlockBounded() throws Exception {
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(10_000);
+            OutputStream out = sock.getOutputStream();
+            String req = "GET /info HTTP/1.1\r\nHost: localhost\r\nX-Flood: "
+                    + "A".repeat(64 * 1024) + "\r\n\r\n";
+            out.write(req.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            String resp = readAvailable(sock, 4096);
+            assertFalse(resp.startsWith("HTTP/1.1 5"),
+                    "oversized header must not cause 5xx: " + firstLine(resp));
+        }
+        assertNodeHealthy();
+    }
+
+    @Test
+    @DisplayName("Header-count flood (10k tiny headers) → bounded, no 5xx, node healthy")
+    @Timeout(30)
+    void headerCountFloodBounded() throws Exception {
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(15_000);
+            OutputStream out = sock.getOutputStream();
+            StringBuilder sb = new StringBuilder("GET /info HTTP/1.1\r\nHost: localhost\r\n");
+            for (int i = 0; i < 10_000; i++) sb.append("X-").append(i).append(": v\r\n");
+            sb.append("\r\n");
+            out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            String resp = readAvailable(sock, 4096);
+            assertFalse(resp.startsWith("HTTP/1.1 5"),
+                    "header flood must not cause 5xx: " + firstLine(resp));
+            System.out.println("[http-posture] 10k-headers response: " + firstLine(resp));
+        }
+        assertNodeHealthy();
+    }
+
+    @Test
+    @DisplayName("Duplicate conflicting Content-Length headers → rejected (strict parsing)")
+    @Timeout(10)
+    void duplicateConflictingContentLengthRejected() throws Exception {
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(5_000);
+            OutputStream out = sock.getOutputStream();
+            String req = "POST /info HTTP/1.1\r\nHost: localhost\r\n"
+                    + "Content-Length: 5\r\nContent-Length: 10\r\n\r\nhello";
+            out.write(req.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            String resp = readAvailable(sock, 4096);
+            assertFalse(resp.startsWith("HTTP/1.1 5"),
+                    "duplicate CL must not cause 5xx: " + firstLine(resp));
+            assertFalse(resp.startsWith("HTTP/1.1 200"),
+                    "conflicting Content-Length must not be accepted as a valid request: " + firstLine(resp));
+        }
+        assertNodeHealthy();
+    }
+
+    @Test
+    @DisplayName("CL.TE smuggling probe → no desync (smuggled request not honored)")
+    @Timeout(10)
+    void clTeSmugglingNotDesynchronized() throws Exception {
+        int twoHundreds = 0;
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(5_000);
+            OutputStream out = sock.getOutputStream();
+            // A request valid under BOTH framings is the smuggling classic: if the front
+            // uses CL and the back uses TE (or vice versa), the second "request" leaks through.
+            String req = "POST /info HTTP/1.1\r\nHost: localhost\r\n"
+                    + "Content-Length: 4\r\nTransfer-Encoding: chunked\r\n\r\n"
+                    + "0\r\n\r\nGET /health HTTP/1.1\r\nHost: localhost\r\n\r\n";
+            out.write(req.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            String resp = readAvailable(sock, 8192);
+            assertFalse(resp.contains("HTTP/1.1 5"), "CL.TE probe must not cause 5xx: " + firstLine(resp));
+            // Count 200s — a desync would answer the smuggled GET /health with 200
+            int idx = 0;
+            while ((idx = resp.indexOf(" 200", idx)) >= 0) { twoHundreds++; idx += 4; }
+            assertTrue(twoHundreds <= 1,
+                    "smuggled second request must not be answered (desync). Responses: " + resp.length());
+        }
+        assertNodeHealthy();
+    }
+
+    @Test
+    @DisplayName("Multipart part flood (10k tiny parts) → bounded, no 5xx, node healthy")
+    @Timeout(30)
+    void multipartPartFloodBounded() throws Exception {
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(15_000);
+            OutputStream out = sock.getOutputStream();
+            String boundary = "vatnboundary";
+            StringBuilder body = new StringBuilder();
+            for (int i = 0; i < 10_000; i++) {
+                body.append("--").append(boundary).append("\r\n")
+                    .append("Content-Disposition: form-data; name=\"f").append(i).append("\"\r\n\r\n")
+                    .append("x\r\n");
+            }
+            body.append("--").append(boundary).append("--\r\n");
+            byte[] bodyBytes = body.toString().getBytes(StandardCharsets.UTF_8);
+
+            String headers = "POST /info HTTP/1.1\r\nHost: localhost\r\n"
+                    + "Content-Type: multipart/form-data; boundary=" + boundary + "\r\n"
+                    + "Content-Length: " + bodyBytes.length + "\r\n\r\n";
+            out.write(headers.getBytes(StandardCharsets.UTF_8));
+            out.write(bodyBytes);
+            out.flush();
+
+            String resp = readAvailable(sock, 4096);
+            assertFalse(resp.startsWith("HTTP/1.1 5"),
+                    "multipart flood must not cause 5xx: " + firstLine(resp));
+            System.out.println("[http-posture] 10k-parts response: " + firstLine(resp));
+        }
+        assertNodeHealthy();
+    }
+
+    @Test
+    @DisplayName("Expect: 100-continue with promised 50MB body never sent → posture recorded, node healthy")
+    @Timeout(15)
+    void expect100ContinueAbusePosture() throws Exception {
+        try (Socket sock = new Socket("127.0.0.1", port)) {
+            sock.setSoTimeout(5_000);
+            OutputStream out = sock.getOutputStream();
+            String req = "POST /info HTTP/1.1\r\nHost: localhost\r\n"
+                    + "Content-Length: 52428800\r\nExpect: 100-continue\r\n\r\n";
+            out.write(req.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            String resp = readAvailable(sock, 4096);
+            // The server may answer 100 Continue and wait (same family as slow-loris),
+            // or reject the oversized claim outright. Either is acceptable; a 200 is not.
+            assertFalse(resp.startsWith("HTTP/1.1 200"),
+                    "must not accept an entity-less 50MB claim: " + firstLine(resp));
+            System.out.println("[http-posture] expect-100 response: " + firstLine(resp));
+        }
+        assertNodeHealthy();
+    }
+
+    // =========================================================================
+    // helpers
+    // =========================================================================
+
+    private void assertNodeHealthy() throws Exception {
+        var healthResp = http.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:" + port + "/info"))
+                        .GET().timeout(Duration.ofSeconds(5)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertTrue(healthResp.statusCode() < 500,
+                "Node must still be healthy after the attack");
+    }
+
+    /** Reads whatever the server sends within the socket timeout; empty string on close/timeout. */
+    private static String readAvailable(Socket sock, int maxBytes) throws Exception {
+        try {
+            byte[] buf = new byte[maxBytes];
+            int n = sock.getInputStream().read(buf);
+            return n > 0 ? new String(buf, 0, n, StandardCharsets.UTF_8) : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static String firstLine(String resp) {
+        if (resp == null || resp.isEmpty()) return "<no response>";
+        int i = resp.indexOf('\n');
+        return (i > 0 ? resp.substring(0, i) : resp).trim();
+    }
 }
