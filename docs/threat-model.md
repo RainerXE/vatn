@@ -34,13 +34,13 @@
 | S12 | Admin UI (`vatn-plugin-admin` + webadmin) | bearer token / JWT login | auth bypass on `/api/*`, XSS via plugin names/routes, default credentials fallback | **none today** | **open gap** → Phase 3.4+3.6; webadmin defaults fail-open with only a warning |
 | S13 | Lattice federation | Ed25519-verified peers | invalid signatures, partition abuse, 100-node fan-in | `LatticeSecurityTest`, `LatticePartitionTest`, `VolumeStressTest` | baseline coverage |
 | S14 | SSRF egress (`VGuardService`) | guard sees every outbound | loopback, private ranges, cloud metadata endpoints | `VSsrfGuardTest` (6) | solid |
-| S15 | Agentic/LLM (`vatn-plugin-openai`, `comm`, MCP/polyglot FFI) | prompts+outputs untrusted; tools need policy | prompt injection, tool abuse, token bombs, secret leakage via model I/O | T10 `AgenticAdversarialTest` | **was zero coverage** — the dev.to article's home turf |
+| S15 | Agentic/LLM (`vatn-plugin-openai`, `comm`, MCP/polyglot FFI) | prompts+outputs untrusted; tools need policy | prompt injection, tool abuse, token bombs, secret leakage via model I/O | T10 `AgenticAdversarialTest` | test suite exists; open gaps documented in [findings log](docs/security/findings-log.md) (F-8, F-9, F-10) |
 
 ## Process gaps closed in Phase 2
 
 - Adversarial suite now runs **in the default gate** (T2) — previously opt-in and effectively unrun.
 - Property-based fuzzing added for frame parsing (T8) — previously hand-written cases only.
-- AI adversarial code-review ritual defined (T11) with a findings log seeded by this week's real bugs.
+- AI adversarial code-review ritual defined (T11) — see [docs/security/adversarial-review-ritual.md](docs/security/adversarial-review-ritual.md) with [findings log](docs/security/findings-log.md) seeded by Phase 2 bugs.
 
 ## Explicit non-goals (documented decisions)
 
