@@ -1,6 +1,8 @@
 package dev.vatn.plugins.containers;
 
 import dev.vatn.api.*;
+import dev.vatn.api.admin.VAdminContribution;
+import dev.vatn.api.admin.VAdminContributionRegistry;
 import dev.vatn.api.admin.VWorkloadRegistry;
 import dev.vatn.api.security.VTrustLevel;
 import org.slf4j.Logger;
@@ -15,7 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class ContainersPlugin implements VNodePlugin {
+public class ContainersPlugin implements VNodePlugin, VAdminContribution {
     private static final Logger log = LoggerFactory.getLogger(ContainersPlugin.class);
 
     private final long startedAt = System.currentTimeMillis();
@@ -53,10 +55,13 @@ public class ContainersPlugin implements VNodePlugin {
             registry.registerProvider(new ContainersWorkloadProvider(managers));
         });
 
-        // 3. Register WebSocket Route for Web Terminal
+        // 3. Register with Admin Contribution Registry
+        context.getService(VAdminContributionRegistry.class).ifPresent(r -> r.register(this));
+
+        // 4. Register WebSocket Route for Web Terminal
         context.registerWebSocket("/vatn/containers/ws/exec", new WebTerminalHandler(managers));
 
-        // 4. Register HTTP Web Dashboard UI
+        // 5. Register HTTP Web Dashboard UI
         context.register("/vatn/containers", routes -> {
             
             // Base Page HTML
@@ -231,53 +236,6 @@ public class ContainersPlugin implements VNodePlugin {
                 res.sendEmpty();
             });
 
-            // Endpoint: Global Workloads Registry
-            routes.get("/api/global-workloads", (req, res) -> {
-                Optional<VWorkloadRegistry> registry = context.getService(VWorkloadRegistry.class);
-                if (registry.isEmpty()) {
-                    res.sendHtml("<div style='color: var(--text-muted); font-size: 13px;'>Workload registry unavailable.</div>");
-                    return;
-                }
-
-                var workloads = registry.get().getAllWorkloads();
-                if (workloads.isEmpty()) {
-                    res.sendHtml("<div style='color: var(--text-muted); font-size: 13px;'>No active workloads running on this node.</div>");
-                    return;
-                }
-
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table>")
-                  .append("<thead><tr>")
-                  .append("<th>ID</th>")
-                  .append("<th>Name</th>")
-                  .append("<th>Type</th>")
-                  .append("<th>Status</th>")
-                  .append("<th>Details</th>")
-                  .append("</tr></thead>")
-                  .append("<tbody>");
-
-                for (var w : workloads) {
-                    String badgeClass = switch (w.type()) {
-                        case WASM -> "background: rgba(139, 92, 246, 0.1); color: #a78bfa;";
-                        case CONTAINER -> "background: rgba(59, 130, 246, 0.1); color: #60a5fa;";
-                        case PROCESS -> "background: rgba(245, 158, 11, 0.1); color: #fbbf24;";
-                        case DAG_TASK -> "background: rgba(16, 185, 129, 0.1); color: #34d399;";
-                        case NATIVE -> "background: rgba(239, 68, 68, 0.1); color: #f87171;";
-                    };
-
-                    sb.append("<tr>")
-                      .append("<td style='font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);'>").append(w.id().substring(0, Math.min(8, w.id().length()))).append("</td>")
-                      .append("<td><strong style='color: var(--text-main);'>").append(w.name()).append("</strong></td>")
-                      .append("<td><span style='font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; ").append(badgeClass).append("'>").append(w.type().name()).append("</span></td>")
-                      .append("<td><span class='status-pill status-running'>").append(w.status().name()).append("</span></td>")
-                      .append("<td style='font-size: 12px; color: var(--text-muted);'>").append(w.resourceUsage().toString()).append("</td>")
-                      .append("</tr>");
-                }
-
-                sb.append("</tbody></table>");
-                res.sendHtml(sb.toString());
-            });
-
             // Endpoint: Registered HTTP Routes
             routes.get("/api/routes", (req, res) -> {
                 List<String> registered = context.getRegisteredRoutes();
@@ -300,6 +258,11 @@ public class ContainersPlugin implements VNodePlugin {
             routes.get("/api/trigger-refresh", (req, res) -> res.sendEmpty());
         });
     }
+
+    @Override public String id()    { return "containers"; }
+    @Override public String title() { return "Containers"; }
+    @Override public String path()  { return "/vatn/containers"; }
+    @Override public String icon()  { return "⊞"; }
 
     @Override
     public void onShutdown() {
