@@ -8,8 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.management.*;
 import java.sql.*;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -240,9 +238,6 @@ class AdminFragmentHandler {
 
     void jvm(VHttpRequest req, VHttpResponse res) {
         if (!authorized(req, res)) return;
-        AdminPlugin plugin = null; // we access collectJvmData via ctx/static
-        // We can't call AdminPlugin.collectJvmData() since it's an instance method.
-        // Build JVM data inline.
         Map<String, Object> data = collectJvmData();
 
         Map<String, Object> heap = (Map<String, Object>) data.get("heap");
@@ -305,10 +300,8 @@ class AdminFragmentHandler {
                 "</div>";
         }
 
-        String html = "<div class=\"text-xs space-y-2\">" + memHtml + "</div>";
-        // We need to return both panels separately via different fragment endpoints?
-        // Actually the existing layout splits memory and performance into two panels.
-        // We'll return the memory panel.
+        String html = "<div class=\"text-xs space-y-2\">" + memHtml + "</div>" +
+            "<div class=\"text-xs space-y-2 pt-4\">" + perfHtml + "</div>";
         res.sendHtml(html);
     }
 
