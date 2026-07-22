@@ -76,13 +76,13 @@ class HttpAdversarialTest {
 
     @Test
     @DisplayName("Slow-loris: headers sent 1 byte/sec — connection must be closed by server")
-    @Timeout(value = 30)
-    @org.junit.jupiter.api.Disabled("Known Helidon header-read-timeout limitation (verified 4.0–4.5) — see docs/plans/2026-07-19-adversarial-hardening.md; re-enabled by the Phase-2 watchdog (Task 9)")
+    @Timeout(value = 40)
     void slowLorisConnectionClosedByServer() throws Exception {
         // Send HTTP request headers drip-by-drip. The server should time out the
         // incomplete request and close the connection.
+        // ConnectionWatchdog fires at 30s; test gives 40s total margin.
         try (Socket sock = new Socket("127.0.0.1", port)) {
-            sock.setSoTimeout(25_000);
+            sock.setSoTimeout(32_000);
             OutputStream out = sock.getOutputStream();
 
             String headers = "GET /info HTTP/1.1\r\nHost: localhost\r\n";

@@ -3,8 +3,11 @@ package dev.vatn.core;
 import dev.vatn.api.VNodeContext;
 import dev.vatn.api.VNodePlugin;
 import dev.vatn.api.VatnSecurity;
+import dev.vatn.core.http.ConnectionWatchdog;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
+import io.helidon.webserver.http1.Http1Config;
+import io.helidon.webserver.websocket.WsConfig;
 import io.helidon.webserver.websocket.WsRouting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,7 @@ public class VNodeRunner {
     private dev.vatn.api.VNodeIdentity identity;
     private dev.vatn.api.VMessaging messagingOverride;
     private WebServer server;
+    private ConnectionWatchdog watchdog;
     private UdpDiscoveryTransport udpDiscovery;
     private final long startTime = System.currentTimeMillis();
     private volatile boolean started = false;
@@ -457,12 +461,20 @@ public class VNodeRunner {
             routing.register(reg.path, reg.service);
         }
         
+        watchdog = new ConnectionWatchdog();
+        watchdog.start();
+        var watchdogHttp1 = Http1Config.builder()
+                .addReceiveListener(watchdog)
+                .build();
         var webServerBuilder = WebServer.builder()
                 .port(port)
                 .routing(routing)
                 .maxPayloadSize(Long.getLong("vatn.http.max_payload_bytes", 16 * 1024 * 1024))
                 .idleConnectionTimeout(java.time.Duration.ofMillis(
-                        Long.getLong("vatn.http.idle_timeout_ms", 10_000)));
+                        Long.getLong("vatn.http.idle_timeout_ms", 10_000)))
+                .protocolsDiscoverServices(false)
+                .addProtocol(watchdogHttp1)
+                .addProtocol(WsConfig.create());
 
         for (WsRouting.Builder ws : webSocketRoutings) {
             webServerBuilder.addRouting(ws);
@@ -530,6 +542,9 @@ public class VNodeRunner {
         }
         if (server != null) {
             server.stop();
+        }
+        if (watchdog != null) {
+            watchdog.stop();
         }
         if (context != null) {
             context.getService(dev.vatn.api.workflow.VDagScheduler.class)

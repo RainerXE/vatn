@@ -7,3 +7,5 @@ dependency-reduced-pom.xml
 
 # IDE files
 .idea/
+AGENTS.md
+agents.md

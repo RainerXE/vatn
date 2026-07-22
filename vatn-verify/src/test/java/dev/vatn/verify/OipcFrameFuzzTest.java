@@ -2,8 +2,7 @@ package dev.vatn.verify;
 
 import dev.vatn.core.transport.OipcMessagingTransport;
 import net.jqwik.api.*;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import net.jqwik.api.lifecycle.*;
 import org.junit.jupiter.api.Tag;
 
 import java.net.InetSocketAddress;
@@ -27,14 +26,17 @@ class OipcFrameFuzzTest {
     private static OipcMessagingTransport server;
     private static int port;
 
-    @BeforeAll
+    @BeforeContainer
     static void startServer() {
         System.setProperty("vatn.ipc.force_tcp", "true");
         server = new OipcMessagingTransport();
         port = server.getConnectionPort();
+        if (port <= 0) {
+            throw new RuntimeException("OIPC server must be bound to a valid port, got " + port);
+        }
     }
 
-    @AfterAll
+    @AfterContainer
     static void stopServer() {
         if (server != null) server.close();
         System.clearProperty("vatn.ipc.force_tcp");
