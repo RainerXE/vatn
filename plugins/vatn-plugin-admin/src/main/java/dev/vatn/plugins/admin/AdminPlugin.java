@@ -74,7 +74,13 @@ public class AdminPlugin implements VNodePlugin {
         ctx.register(base, routes -> {
 
             // ── HTML dashboard ───────────────────────────────────────────────
-            routes.get("", (req, res) -> res.sendHtml(AdminHtml.render(base)));
+            routes.get("", (req, res) -> {
+                if (!authorized(req, res)) return;
+                var contributions = ctx.getService(VAdminContributionRegistry.class)
+                    .map(VAdminContributionRegistry::getContributions)
+                    .orElse(List.of());
+                res.sendHtml(AdminHtml.render(base, contributions));
+            });
 
             // ── overview ─────────────────────────────────────────────────────
             routes.get("/api/overview", (req, res) -> {
