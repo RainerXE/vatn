@@ -508,7 +508,7 @@ JMH micro-benchmarks and external load-test scripts (`bench/http/`, `bench/workf
 
 ### `vatn-spec` — Protocol Specifications
 
-`OIPC-212-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" binary wire protocol.
+`OIPC-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" + v2.13 wire protocol.
 
 ### `vatn-verify` — Protocol Verification
 

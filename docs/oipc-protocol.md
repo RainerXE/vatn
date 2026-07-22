@@ -41,9 +41,9 @@ following on the wire (`ver_minor` stays `12` — fully backward compatible):
    Greeting/V3 exchange transparently on the same socket. This is out-of-band with respect to the
    OIPC frame stream.
 
-The full VATN-specific mapping of the v2.13 delta — Greeting layout, flag bits, auth_token
+The full VATN-specific mapping of both v2.12 and the v2.13 delta — Greeting layout, flag bits, auth_token
 semantics, CONNECT gating, and per-connection identity surfacing — is documented in
-[`vatn-spec/OIPC-213-alignment.md`](../vatn-spec/OIPC-213-alignment.md).
+[`vatn-spec/OIPC-alignment.md`](../vatn-spec/OIPC-alignment.md).
 
 ---
 
@@ -238,5 +238,5 @@ High-level semantic opcodes used by application-layer pub/sub routing (not part 
 *OIPC v2.12 — "Relentless". The v2.13 additions (64-byte Greeting bootstrap, Tunneled_HTTP flag,
 and HTTP CONNECT tunnel) are implemented in `OipcMessagingTransport` (server) and `OipcGreeting`
 (client helper). Per-connection identity surfacing uses `VatnSecurity.CURRENT_AUTH_TOKEN` /
-`CURRENT_CLIENT_ID` ScopedValues. See [`vatn-spec/OIPC-213-alignment.md`](../vatn-spec/OIPC-213-alignment.md)
-for the full delta.*
+`CURRENT_CLIENT_ID` ScopedValues. See [`vatn-spec/OIPC-alignment.md`](../vatn-spec/OIPC-alignment.md)
+for the full mapping.*
