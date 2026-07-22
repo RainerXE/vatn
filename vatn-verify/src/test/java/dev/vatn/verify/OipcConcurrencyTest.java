@@ -4,6 +4,7 @@ import dev.vatn.core.transport.OipcMessagingTransport;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import java.io.File;
 import java.net.InetSocketAddress;
@@ -45,6 +46,7 @@ public class OipcConcurrencyTest {
     }
 
     @Test
+    @Tag("integration")
     void testMultiClientInterleaving() throws Exception {
         int clientCount = 10; 
         int msgSize = 1024 * 1024 * 2; // 2MB
@@ -78,6 +80,7 @@ public class OipcConcurrencyTest {
     }
 
     @Test
+    @Tag("integration")
     void testBroadcastFanOut() throws Exception {
         int clientCount = 5;
         AtomicLong totalReceivedSinks = new AtomicLong();
@@ -94,16 +97,18 @@ public class OipcConcurrencyTest {
         for (SocketChannel sc : clients) {
             Thread.ofVirtual().start(() -> {
                 try {
+                    // V3 18-byte header: magic(0-3) version(4) flags(5) length(6-9) msgId(10-13) seq(14-17)
                     ByteBuffer header = ByteBuffer.allocate(18).order(ByteOrder.BIG_ENDIAN);
-                    while (sc.read(header) > 0) {
+                    while (true) {
+                        header.clear();
+                        readFully(sc, header);
                         header.flip();
-                        header.position(6); // flags
+                        header.position(5); // flags at 5, length at 6-9
                         byte flags = header.get();
                         int len = header.getInt();
                         ByteBuffer payload = ByteBuffer.allocate(len);
                         readFully(sc, payload);
                         totalReceivedSinks.incrementAndGet();
-                        header.clear();
                     }
                 } catch (Exception ignore) {}
             });

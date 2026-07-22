@@ -23,7 +23,7 @@ public class MongoPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.mongodb"; }
     @Override public String getName()    { return "VATN MongoDB Plugin"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

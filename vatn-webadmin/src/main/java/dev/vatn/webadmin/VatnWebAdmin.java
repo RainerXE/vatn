@@ -21,40 +21,68 @@ import java.util.Map;
  *
  * <p>Configuration via environment variables:
  * <pre>
- *   VATN_JWT_SECRET   — JWT signing secret (min 32 chars); defaults to a dev-only placeholder
- *   VATN_ADMIN_USER   — admin username (default: admin)
- *   VATN_ADMIN_PASS   — admin password (default: vatnadmin — CHANGE IN PRODUCTION)
+ *   VATN_JWT_SECRET   — JWT signing secret (min 32 chars); exits with error if unset
+ *   VATN_ADMIN_USER   — admin username; exits with error if unset
+ *   VATN_ADMIN_PASS   — admin password; exits with error if unset
  *   PORT              — HTTP port (default: 8080, or pass as first CLI arg)
  * </pre>
+ *
+ * <p>Pass {@code --dev} as the first CLI argument to use development defaults
+ * (printed warnings instead of fatal errors).
  *
  * <p>Install as a background daemon with {@code install.sh}.
  */
 public class VatnWebAdmin {
 
+    private static final String DEV_SECRET = "default-development-jwt-signing-secret-key-32chars!!";
+
     public static void main(String[] args) {
+        boolean devMode = false;
         int port = 8080;
-        String envPort = System.getenv("PORT");
-        if (args.length > 0) {
-            try { port = Integer.parseInt(args[0]); } catch (NumberFormatException ignored) {}
-        } else if (envPort != null && !envPort.isBlank()) {
-            try { port = Integer.parseInt(envPort); } catch (NumberFormatException ignored) {}
+        for (String arg : args) {
+            if ("--dev".equals(arg)) { devMode = true; continue; }
+            try { port = Integer.parseInt(arg); } catch (NumberFormatException ignored) {}
+        }
+        if (!devMode) {
+            String envPort = System.getenv("PORT");
+            if (envPort != null && !envPort.isBlank()) {
+                try { port = Integer.parseInt(envPort); } catch (NumberFormatException ignored) {}
+            }
         }
 
         // JWT secret — must be at least 32 chars in production
         String secret = System.getenv("VATN_JWT_SECRET");
-        if (secret == null || secret.length() < 32) {
-            secret = "default-development-jwt-signing-secret-key-32chars!!";
-            System.out.println("[vatn-webadmin] WARNING: using default JWT secret. Set VATN_JWT_SECRET in production.");
+        if (secret == null || secret.isBlank()) {
+            if (!devMode) {
+                System.err.println("[vatn-webadmin] FATAL: VATN_JWT_SECRET is not set. Use --dev for local development.");
+                System.exit(1);
+            }
+            secret = DEV_SECRET;
+            System.out.println("[vatn-webadmin] WARNING: using dev JWT secret (--dev mode).");
+        } else if (secret.equals(DEV_SECRET) && !devMode) {
+            System.err.println("[vatn-webadmin] FATAL: VATN_JWT_SECRET is the known dev default. Set a real secret or use --dev.");
+            System.exit(1);
         }
 
-        String adminUser = System.getenv().getOrDefault("VATN_ADMIN_USER", "admin");
-        String adminPass = System.getenv().getOrDefault("VATN_ADMIN_PASS", "vatnadmin");
+        String envUser = System.getenv("VATN_ADMIN_USER");
+        String envPass = System.getenv("VATN_ADMIN_PASS");
+        if (envUser == null || envUser.isBlank() || envPass == null || envPass.isBlank()) {
+            if (!devMode) {
+                System.err.println("[vatn-webadmin] FATAL: VATN_ADMIN_USER and VATN_ADMIN_PASS must be set. Use --dev for local development.");
+                System.exit(1);
+            }
+            envUser = "admin";
+            envPass = "vatnadmin";
+            System.out.println("[vatn-webadmin] WARNING: using dev admin credentials (--dev mode).");
+        }
+        final String adminUser = envUser;
+        final String adminPass = envPass;
 
         AuthConfig authConfig = AuthConfig.of(secret, (username, password) -> {
             if (adminUser.equals(username) && adminPass.equals(password)) {
                 return Map.of("role", "admin");
             }
-            throw new RuntimeException("Invalid credentials");
+            throw new dev.vatn.plugins.auth.InvalidCredentialsException("Invalid credentials");
         });
 
         VNodeRunner runner = VNodeRunner.create(port)

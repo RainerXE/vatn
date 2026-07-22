@@ -1,4 +1,5 @@
 # vatn-plugin-metrics
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Exposes a Prometheus-compatible metrics endpoint powered by Micrometer.
 
@@ -12,7 +13,7 @@ Creates a Micrometer `PrometheusMeterRegistry` and optionally binds standard JVM
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-metrics</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

@@ -1,4 +1,5 @@
 # vatn-plugin-redis
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides Redis key-value operations and pub/sub messaging via Jedis.
 
@@ -12,7 +13,7 @@ Creates a Jedis client on plugin initialisation using the supplied host, port, a
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-redis</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

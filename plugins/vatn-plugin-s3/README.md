@@ -1,4 +1,5 @@
 # vatn-plugin-s3
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Object storage via AWS S3 or any S3-compatible service (MinIO, Cloudflare R2, DigitalOcean Spaces).
 
@@ -12,7 +13,7 @@ Uses AWS SDK v2 with the URL-connection HTTP client. The plugin registers two se
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-s3</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

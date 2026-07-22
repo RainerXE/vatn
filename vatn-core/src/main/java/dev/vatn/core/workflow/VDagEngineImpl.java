@@ -48,6 +48,8 @@ public class VDagEngineImpl implements VDagEngine {
 
     /** Active run IDs → set of in-flight task futures, for cancellation. */
     private final ConcurrentHashMap<String, Set<Future<?>>> activeRunTasks = new ConcurrentHashMap<>();
+    /** Per-DAG concurrency gates enforcing maxActiveRuns (released as runs finalize). */
+    private final ConcurrentHashMap<String, Semaphore> runGates = new ConcurrentHashMap<>();
     /** Sensor re-poll timestamps: (runId + ":" + taskId) → next poll at */
     private final ConcurrentHashMap<String, Long> sensorNextPoll = new ConcurrentHashMap<>();
 
@@ -94,15 +96,8 @@ public class VDagEngineImpl implements VDagEngine {
 
         checkNoCycles(dag);
 
-        // Enforce maxActiveRuns
-        if (dag.maxActiveRuns() > 0) {
-            long active = getRuns(dagId, Integer.MAX_VALUE).stream()
-                    .filter(r -> r.state() == VDagRunState.RUNNING || r.state() == VDagRunState.QUEUED)
-                    .count();
-            if (active >= dag.maxActiveRuns()) {
-                throw new IllegalStateException("DAG " + dagId + " has reached maxActiveRuns=" + dag.maxActiveRuns());
-            }
-        }
+        // maxActiveRuns is enforced at execution time (see executeRun), not here, so trigger()
+        // stays non-blocking and returns the created run immediately even under a burst.
 
         String runId = UUID.randomUUID().toString();
         Map<String, String> mergedConf = new HashMap<>(dag.defaultArgs());
@@ -155,6 +150,16 @@ public class VDagEngineImpl implements VDagEngine {
         String runId = initialRun.runId();
         activeRunTasks.put(runId, ConcurrentHashMap.newKeySet());
 
+        // Enforce maxActiveRuns: block this run's virtual thread until a slot frees (released by
+        // finalizeRun). Keeps trigger() non-blocking while bounding concurrent execution.
+        Semaphore gate = runGates.computeIfAbsent(dag.id(),
+                k -> new Semaphore(Math.max(1, dag.maxActiveRuns())));
+        try {
+            gate.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
         try {
             updateRunState(runId, VDagRunState.RUNNING, Instant.now(), null);
             subscriptions.notifyRunChange(runId, dag.id(), VDagRunState.RUNNING);
@@ -228,6 +233,7 @@ public class VDagEngineImpl implements VDagEngine {
             updateRunState(runId, VDagRunState.FAILED, null, Instant.now());
         } finally {
             activeRunTasks.remove(runId);
+            gate.release();
         }
     }
 

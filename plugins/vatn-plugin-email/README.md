@@ -1,4 +1,5 @@
 # vatn-plugin-email
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Sends email via SMTP from a VATN node.
 
@@ -12,7 +13,7 @@ Uses Jakarta Mail (the Angus reference implementation) to deliver messages over 
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-email</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

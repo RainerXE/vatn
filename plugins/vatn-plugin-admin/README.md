@@ -1,4 +1,5 @@
 # vatn-plugin-admin
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Serves a built-in HTML dashboard for inspecting a live VATN node.
 
@@ -12,7 +13,7 @@ Registers a single `GET` route (default `/vatn/admin`) that returns a minimal HT
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-admin</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

@@ -21,7 +21,7 @@
     </description>
 
     <properties>
-        <vatn.plugins.version>1.0-alpha.12</vatn.plugins.version>
+        <vatn.plugins.version>1.0-alpha.14</vatn.plugins.version>
     </properties>
 
     <dependencies>

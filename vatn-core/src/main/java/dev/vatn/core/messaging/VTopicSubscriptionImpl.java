@@ -101,7 +101,10 @@ class VTopicSubscriptionImpl implements VTopicSubscription {
 
     @Override
     public void close() {
-        if (thread != null) thread.interrupt();
+        if (thread != null) {
+            thread.interrupt();
+            try { thread.join(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
         topic.saveOffset(consumerId, offset.get());
     }
 }

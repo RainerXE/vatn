@@ -43,7 +43,7 @@ public class CommPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.comm"; }
     @Override public String getName()    { return "VATN Communication Sidecar Plugin"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

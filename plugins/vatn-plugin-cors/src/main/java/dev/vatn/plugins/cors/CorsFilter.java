@@ -13,10 +13,18 @@ import java.util.List;
  */
 public class CorsFilter implements VHttpFilter {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CorsFilter.class);
+
     private final CorsConfig config;
 
     public CorsFilter(CorsConfig config) {
         this.config = config;
+        if (config.isAllowCredentials() && config.getAllowedOrigins().contains("*")) {
+            // ACAO:'*' + ACAC:'true' is the invalid/dangerous combination browsers reject and
+            // Helidon 4.5 patched upstream; we suppress the credentials header on wildcard responses.
+            log.warn("CORS configured with wildcard origin AND credentials — "
+                    + "Access-Control-Allow-Credentials will be suppressed on wildcard responses");
+        }
     }
 
     @Override
@@ -33,7 +41,7 @@ public class CorsFilter implements VHttpFilter {
                 if (!"*".equals(allowed)) {
                     res.setHeader("Vary", "Origin");
                 }
-                if (config.isAllowCredentials()) {
+                if (config.isAllowCredentials() && !"*".equals(allowed)) {
                     res.setHeader("Access-Control-Allow-Credentials", "true");
                 }
                 if (!config.getExposedHeaders().isEmpty()) {

@@ -1,4 +1,5 @@
 # vatn-plugin-mongodb
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides a managed MongoDB connection as a VATN service.
 
@@ -12,7 +13,7 @@ Initialises a MongoDB sync driver `MongoClient` at plugin startup using the supp
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-mongodb</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

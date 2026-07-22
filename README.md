@@ -93,7 +93,7 @@ vatn/
 ├── vatn-bench/                 ← JMH benchmarks + load-test scripts
 ├── vatn-webadmin/              ← Web Admin (bundled daemon — see below)
 │
-├── plugins/                    ← Official plugin suite (24 plugins)
+├── plugins/                    ← Official plugin suite (25 plugins)
 │   ├── vatn-plugin-admin/
 │   ├── vatn-plugin-auth/
 │   ├── vatn-plugin-containers/
@@ -176,7 +176,7 @@ VATN_PLUGINS=cors,auth,swagger,postgres \
 ```bash
 source ~/.zshrc          # reload shell (or open a new terminal)
 
-vatn --version           # VATN Runtime 1.0.0
+vatn --version           # VATN Runtime 1.0-alpha.14
 vatn init my-project     # scaffold a new plugin project
 cd my-project
 vatn run                 # starts node on :8080
@@ -508,7 +508,7 @@ JMH micro-benchmarks and external load-test scripts (`bench/http/`, `bench/workf
 
 ### `vatn-spec` — Protocol Specifications
 
-`OIPC-212-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" binary wire protocol.
+`OIPC-alignment.md` — Full VATN alignment document for the OIPC v2.12 "Relentless" + v2.13 wire protocol.
 
 ### `vatn-verify` — Protocol Verification
 
@@ -579,7 +579,7 @@ SOFTWARE.
 
 | Library | Version | License | Used in |
 |---------|---------|---------|---------| 
-| [Eclipse Helidon SE](https://helidon.io/) | 4.4.1 | Apache 2.0 | HTTP, WebSocket, SSE (`vatn-core`) |
+| [Eclipse Helidon SE](https://helidon.io/) | 4.5.0 | Apache 2.0 | HTTP, WebSocket, SSE (`vatn-core`) |
 | [Jackson Databind](https://github.com/FasterXML/jackson-databind) | 2.16.1 | Apache 2.0 | JSON serialisation |
 | [PF4J](https://pf4j.org/) | 3.9.0 | Apache 2.0 | Plugin loader and lifecycle |
 | [Picocli](https://picocli.info/) | 4.7.5 | Apache 2.0 | CLI framework (`vatn-cli`) |

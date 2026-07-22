@@ -24,7 +24,7 @@ public class IndexerPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.indexer"; }
     @Override public String getName()    { return "VATN Indexer Plugin"; }
-    @Override public String getVersion() { return "1.0.0"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

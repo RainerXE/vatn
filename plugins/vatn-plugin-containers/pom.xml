@@ -7,11 +7,10 @@
     <parent>
         <groupId>dev.vatn.plugins</groupId>
         <artifactId>vatn-plugins-parent</artifactId>
-        <version>1.0-alpha.12</version>
+        <version>1.0-alpha.14</version>
     </parent>
 
     <artifactId>vatn-plugin-containers</artifactId>
-    <version>1.0-alpha.12</version>
 
     <name>VATN Plugin: Containers</name>
     <description>Unified Container Management (Docker, Podman, Distrobox) for VATN nodes</description>
@@ -21,6 +20,10 @@
             <groupId>dev.vatn</groupId>
             <artifactId>vatn-api</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
     </dependencies>
 </project>

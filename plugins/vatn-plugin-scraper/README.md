@@ -1,4 +1,5 @@
 # vatn-plugin-scraper
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 First-stage pipeline plugin that fetches web pages with Jsoup, extracts structured fields via CSS selectors, and streams results as NDJSON to a downstream VATN node.
 
@@ -12,7 +13,7 @@ Uses Jsoup to make HTTP GET requests for each configured URL and applies CSS sel
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-scraper</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

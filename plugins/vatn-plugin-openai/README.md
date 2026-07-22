@@ -1,4 +1,5 @@
 # vatn-plugin-openai
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides LLM completion and chat via any OpenAI-compatible API endpoint.
 
@@ -12,7 +13,7 @@ Uses VATN's built-in `VHttpClient` to POST JSON to the `/v1/chat/completions` en
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-openai</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

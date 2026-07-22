@@ -1,4 +1,5 @@
 # vatn-plugin-activitypub
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Turns a VATN node into an ActivityPub actor so it can federate with Mastodon, Pixelfed, and other Fediverse software.
 
@@ -12,7 +13,7 @@ Registers four Helidon HTTP routes (`/.well-known/webfinger`, `/ap/actor`, `/ap/
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-activitypub</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

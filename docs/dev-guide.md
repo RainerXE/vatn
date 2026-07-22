@@ -402,7 +402,7 @@ mvn test -pl vatn-core
 mvn test -pl vatn-core -Dtest=VDagEngineTest
 ```
 
-The test suite currently has 53 tests in `vatn-core`. All should pass green.
+The test suite has ~180 tests in `vatn-core` (plus ~120 in `vatn-verify`). All should pass green.
 
 ### Environment variables
 
@@ -1288,7 +1288,11 @@ java -jar target/01-hello-world-*.jar
 | [05 Dashboard](../examples/05-realtime-dashboard/) | port 8084 | Open `localhost:8084` in a browser |
 | [06 Scheduled Report](../examples/06-scheduled-report/) | port 8085 | Watch logs for cron trigger |
 | [07 Chat App](../examples/07-chat-app/) | port 8086 | Full browser UI, multi-room |
+| [08 Chaos Suite](../examples/08%20chaos-suite/) | port 8087 | Watchdog restart, OOM resilience |
+| [09 Polyglot FFI](../examples/09%20polyglot-ffi/) | port 8088 | Java + C + Odin interop via Panama FFM |
+| [10 Python Plugin](../examples/10%20python-plugin/) | port 8089 | Raw Python OIPC socket plugin |
 | [11 Custom Guard](../examples/11-custom-guard/) | port 8090 | Logs show PII redaction and SSRF blocking |
+| [12 Task Queue](../examples/12-task-queue/) | port 8091 | Bull.js-style job queue with crash safety |
 
 ---
 
@@ -1431,7 +1435,7 @@ Smoke-test:
 
 ./vatn-cli/target/vatn --help
 # Usage: vatn [-hvV] [COMMAND]
-#   run, init, registry, logs, info, test, benchmark
+#   run, init, registry, logs, info, test, benchmark, inventory
 ```
 
 ### What is compiled into the binary
@@ -1552,7 +1556,7 @@ GraalVM's closed-world analysis needs help with reflection, resources, and initi
 | `META-INF/native-image/dev.vatn.cli/reflect-config.json` | `vatn-cli` | All CLI command classes (picocli reflective instantiation) |
 | `META-INF/native-image/dev.vatn.cli/native-image.properties` | `vatn-cli` | picocli build-time initialization |
 
-The root `pom.xml` enables GraalVM's community reachability metadata repository (`<metadataRepository><enabled>true</enabled></metadataRepository>`), which automatically supplies configs for jackson-databind 2.16.1, postgresql 42.7.2, and flyway-core 10.8.1 without manual configuration.
+The root `pom.xml` enables GraalVM's community reachability metadata repository (`<metadataRepository><enabled>true</enabled></metadataRepository>`), which automatically supplies community reachability metadata for common libraries (jackson, postgresql, flyway, etc.) without manual configuration.
 
 If you add a dependency that has no community metadata, create its reflection config in your module under `META-INF/native-image/<groupId>/<artifactId>/reflect-config.json`. Running the native-image agent (`-agentlib:native-image-agent`) against your test suite is the fastest way to generate a baseline.
 

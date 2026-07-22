@@ -356,9 +356,6 @@ public final class ContainersHtml {
       <li class="nav-item" :class="{ 'active': currentTab === 'containers' }" @click="currentTab = 'containers'">
         <span>&#9638;</span> Containers
       </li>
-      <li class="nav-item" :class="{ 'active': currentTab === 'workloads' }" @click="currentTab = 'workloads'">
-        <span>&#9783;</span> Workloads
-      </li>
       <li class="nav-item" :class="{ 'active': currentTab === 'network' }" @click="currentTab = 'network'">
         <span>&#9072;</span> Network & Routes
       </li>
@@ -433,19 +430,6 @@ public final class ContainersHtml {
           </div>
           <div hx-get="__BASE__/api/containers?engine=RAW" hx-trigger="load, every 5s">
             Loading system containers...
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: Workloads -->
-    <div class="tab-content" :class="{ 'active': currentTab === 'workloads' }">
-      <div class="dashboard-grid">
-        <!-- Global active workloads registry -->
-        <div class="glass-card col-12">
-          <div class="card-title">Global Active Workloads</div>
-          <div hx-get="__BASE__/api/global-workloads" hx-trigger="load, every 5s">
-            Loading global active workloads...
           </div>
         </div>
       </div>

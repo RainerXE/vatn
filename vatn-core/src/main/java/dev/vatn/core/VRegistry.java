@@ -199,7 +199,10 @@ public class VRegistry implements VPluginRegistry {
      */
     public void registerPlugin(VNodePlugin plugin) {
         manualPlugins.add(plugin);
-        assignedTrust.put(plugin.getId(), VTrustLevel.FULL); // Manually added are trusted by the host
+        // Manually added are trusted by the host. Guard against null metadata so a plugin that
+        // returns null from getId() cannot crash registration (tolerated by the runtime).
+        String id = plugin.getId();
+        assignedTrust.put(id != null ? id : "<unknown>", VTrustLevel.FULL);
     }
 
     /**

@@ -3,6 +3,17 @@
 # VATN Web Admin Installer
 # Usage (remote): curl -sL https://get.vatn.dev/webadmin | bash
 # Usage (local):  ./install.sh
+#
+# This is a standalone installer for the VATN Web Admin component only.
+# Use it when you already have the VATN core runtime and just want the
+# admin dashboard as an add-on background service.
+#
+# If you already installed VATN via the root install.sh (which includes
+# web-admin as an optional component), run this only if you need to
+# upgrade or repair the web-admin installation independently.
+#
+# To get the full VATN platform (core + web-admin + plugins + examples),
+# use the root installer instead:  curl -sL https://get.vatn.dev | bash
 
 set -euo pipefail
 
@@ -20,6 +31,32 @@ VERSION="${VATN_VERSION:-latest}"
 
 echo -e "${BLUE}==> VATN Web Admin Installer${NC}"
 echo -e "${BLUE}==> Version: ${VERSION}${NC}"
+
+# ── Guard: detect prior installation via root install.sh ──────────────────
+PLIST_PATH="$HOME/Library/LaunchAgents/dev.vatn.webadmin.plist"
+SERVICE_PATH="$HOME/.config/systemd/user/vatn-webadmin.service"
+
+if [ -f "$BINARY_PATH" ] || [ -f "$PLIST_PATH" ] || [ -f "$SERVICE_PATH" ]; then
+  echo -e "${YELLOW}==> VATN Web Admin appears to already be installed.${NC}"
+  echo -e "${YELLOW}    Binary: $BINARY_PATH${NC}"
+  echo
+  echo -e "${YELLOW}    This standalone installer is intended for users who did NOT"
+  echo -e "${YELLOW}    install VATN via the root install.sh (which includes web-admin"
+  echo -e "${YELLOW}    as an optional component). Running it alongside the root"
+  echo -e "${YELLOW}    installer will create competing service registrations.${NC}"
+  echo
+  echo -e "${YELLOW}    To remove the existing installation first:${NC}"
+  echo -e "${YELLOW}      rm -f $BINARY_PATH${NC}"
+  echo -e "${YELLOW}      rm -f $PLIST_PATH  (macOS)${NC}"
+  echo -e "${YELLOW}      rm -f $SERVICE_PATH (Linux)${NC}"
+  echo
+  echo -e "${BLUE}==> Continue anyway? [y/N]${NC} \c"
+  read -r CONFIRM
+  case "$CONFIRM" in
+    [yY]|[yY][eE][sS]) ;;
+    *) echo -e "${YELLOW}Aborted.${NC}"; exit 0 ;;
+  esac
+fi
 
 # 1. Detect OS & architecture
 OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"

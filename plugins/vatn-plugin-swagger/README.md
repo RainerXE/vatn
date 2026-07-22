@@ -1,4 +1,5 @@
 # vatn-plugin-swagger
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Serves an OpenAPI 3.0 spec and a Swagger UI for exploring your node's API.
 
@@ -12,7 +13,7 @@ Registers two HTTP endpoints: `GET /api-docs` returns an OpenAPI 3.0 JSON docume
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-swagger</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

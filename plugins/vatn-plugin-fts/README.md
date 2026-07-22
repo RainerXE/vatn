@@ -1,4 +1,5 @@
 # vatn-plugin-fts
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Full-text search backed by SQLite FTS5 with BM25 ranking and snippet extraction.
 
@@ -12,7 +13,7 @@ Creates an FTS5 virtual table inside the node's existing `VPersistenceService` d
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-fts</artifactId>
-    <version>1.0-alpha.12</version>
+    <version>1.0-alpha.14</version>
 </dependency>
 ```
 

@@ -13,15 +13,24 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class VQueueServiceImpl implements VQueueService {
+public class VQueueServiceImpl implements VQueueService, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(VQueueServiceImpl.class);
 
     private final VPersistenceService db;
     private final ConcurrentHashMap<String, VNamedQueueImpl> queues = new ConcurrentHashMap<>();
+    private final Thread sweeper;
+    private volatile boolean running = true;
 
     public VQueueServiceImpl(VPersistenceService db) {
         this.db = db;
-        Thread.ofVirtual().name("vatn-queue-sweeper").start(this::sweepLoop);
+        sweeper = Thread.ofVirtual().name("vatn-queue-sweeper").start(this::sweepLoop);
+    }
+
+    /** Stops the background sweeper thread. Idempotent. */
+    @Override
+    public void close() {
+        running = false;
+        sweeper.interrupt();
     }
 
     @Override
@@ -36,9 +45,10 @@ public class VQueueServiceImpl implements VQueueService {
 
     // Reclaim jobs whose visibility timeout has expired — puts them back to PENDING
     private void sweepLoop() {
-        while (!Thread.currentThread().isInterrupted()) {
+        while (running && !Thread.currentThread().isInterrupted()) {
             try {
                 Thread.sleep(5_000);
+                if (!running) break;
                 reclaimExpired();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

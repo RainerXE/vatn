@@ -46,7 +46,7 @@ public class AuthPlugin implements VNodePlugin {
 
     private static final String PLUGIN_ID = "dev.vatn.plugins.auth";
     private static final String PLUGIN_NAME = "VATN Auth Plugin";
-    private static final String PLUGIN_VERSION = "1.0-SNAPSHOT";
+    private static final String PLUGIN_VERSION = "1.0-alpha.14";
 
     private final AuthConfig config;
     private final ObjectMapper mapper;
@@ -116,7 +116,13 @@ public class AuthPlugin implements VNodePlugin {
     // -------------------------------------------------------------------------
 
     private void handleLogin(VHttpRequest req, VHttpResponse res) throws Exception {
-        Map<String, String> body = parseBody(req.getBody());
+        Map<String, String> body;
+        try {
+            body = parseBody(req.getBody());
+        } catch (BadRequestException e) {
+            res.status(400).sendJson(errorJson("Malformed request body"));
+            return;
+        }
         String username = body.get("username");
         String password = body.get("password");
 
@@ -131,11 +137,22 @@ public class AuthPlugin implements VNodePlugin {
         } catch (InvalidCredentialsException e) {
             log.debug("Login failed for '{}': {}", username, e.getMessage());
             res.status(401).sendJson(errorJson("Invalid credentials"));
+        } catch (RuntimeException e) {
+            // Validators are arbitrary user code; a validator that throws anything other than
+            // InvalidCredentialsException must never leak a 500 oracle to the client.
+            log.warn("Credential validator failed unexpectedly for '{}': {}", username, e.toString());
+            res.status(401).sendJson(errorJson("Invalid credentials"));
         }
     }
 
     private void handleRefresh(VHttpRequest req, VHttpResponse res) throws Exception {
-        Map<String, String> body = parseBody(req.getBody());
+        Map<String, String> body;
+        try {
+            body = parseBody(req.getBody());
+        } catch (BadRequestException e) {
+            res.status(400).sendJson(errorJson("Malformed request body"));
+            return;
+        }
         String refreshToken = body.get("refreshToken");
 
         if (refreshToken == null || refreshToken.isBlank()) {
@@ -170,7 +187,11 @@ public class AuthPlugin implements VNodePlugin {
         if (body == null || body.isBlank()) {
             return Map.of();
         }
-        return mapper.readValue(body, new TypeReference<Map<String, String>>() {});
+        try {
+            return mapper.readValue(body, new TypeReference<Map<String, String>>() {});
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new BadRequestException("Malformed request body", e);
+        }
     }
 
     /**

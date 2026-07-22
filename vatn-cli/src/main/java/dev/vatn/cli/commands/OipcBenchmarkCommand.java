@@ -8,7 +8,6 @@ import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SocketChannel;
-import java.util.Base64;
 import java.util.concurrent.Callable;
 
 /**
@@ -30,7 +29,7 @@ public class OipcBenchmarkCommand implements Callable<Integer> {
     @Option(names = "--protocol", description = "Protocol to use: BINARY, JSON_BASE64, JSON_NATIVE", defaultValue = "BINARY")
     private Protocol protocol;
 
-    @Option(names = "--path", description = "UDS socket path.")
+    @Option(names = "--path", description = "UDS socket path.", defaultValue = "")
     private String path;
 
     @Option(names = "--port", description = "TCP port (if --path empty).", defaultValue = "0")
@@ -97,18 +96,26 @@ public class OipcBenchmarkCommand implements Callable<Integer> {
         long startNs = System.nanoTime();
 
         if (protocol == Protocol.BINARY) {
-            // Mandatory OIPC V2.12 HELLO Handshake
-            ByteBuffer hello = ByteBuffer.allocate(18 + 10).order(ByteOrder.BIG_ENDIAN);
+            // Mandatory OIPC V2.12 HELLO Handshake — declared payload length must match the
+            // actual bytes written (type 1 + major 1 + minor 1 + nodeId N), or the server
+            // blocks waiting for phantom payload bytes and never sends the ACK.
+            byte[] nodeId = "BENCH".getBytes();
+            int helloLen = 3 + nodeId.length;
+            ByteBuffer hello = ByteBuffer.allocate(18 + helloLen).order(ByteOrder.BIG_ENDIAN);
             hello.put("OIPC".getBytes()).put((byte)3).put((byte)(0x02 | 0x20)); // V3, BINARY | CONTROL
-            hello.putInt(10).putInt(0).putInt(0); // Length 10, MsgID 0, Seq 0
-            hello.put((byte)0x05).put((byte)2).put((byte)12).put("BENCH".getBytes()); // Type HELLO, V2.12, NodeID
+            hello.putInt(helloLen).putInt(0).putInt(0); // Length, MsgID 0, Seq 0
+            hello.put((byte)0x05).put((byte)2).put((byte)12).put(nodeId); // Type HELLO, V2.12, NodeID
             hello.flip();
             while (hello.hasRemaining()) channel.write(hello);
-            
-            // Wait for ACK
+
+            // Wait for ACK (18-byte header + 12-byte control payload)
             ByteBuffer ack = ByteBuffer.allocate(18 + 12);
-            channel.read(ack);
-            
+            int ackBytes = channel.read(ack);
+            if (ackBytes < 0) {
+                System.out.println("[OIPC-Bench] Server closed connection during HELLO handshake");
+                return 1;
+            }
+
             runBinaryClient(channel, payloadBytes);
         } else {
             runJsonClient(channel, payloadBytes);
@@ -125,8 +132,10 @@ public class OipcBenchmarkCommand implements Callable<Integer> {
 
     private void runBinaryClient(SocketChannel channel, byte[] payload) throws Exception {
         if (payload.length <= CHUNK_SIZE) {
-            ByteBuffer env = ByteBuffer.allocateDirect(10 + payload.length).order(ByteOrder.BIG_ENDIAN);
-            env.put("OIPC".getBytes()).put((byte)2).put((byte)0x02).putInt(payload.length).put(payload).flip();
+            // V3 "Relentless" 18-byte header: magic(4) + version(1) + flags(1) + length(4) + msgId(4) + seq(4)
+            ByteBuffer env = ByteBuffer.allocateDirect(18 + payload.length).order(ByteOrder.BIG_ENDIAN);
+            env.put("OIPC".getBytes()).put((byte)3).put((byte)0x02)
+               .putInt(payload.length).putInt(0).putInt(0).put(payload).flip();
             for (int i = 0; i < count; i++) {
                 env.rewind();
                 while (env.hasRemaining()) channel.write(env);
@@ -150,16 +159,9 @@ public class OipcBenchmarkCommand implements Callable<Integer> {
     }
 
     private void runJsonClient(SocketChannel channel, byte[] payload) throws Exception {
-        String data = (protocol == Protocol.JSON_BASE64) 
-            ? Base64.getEncoder().encodeToString(payload)
-            : new String(payload); // Raw string for native check (assuming valid-ish binary in test)
-
-        String json = "{\"header\":{\"topic\":\"binary.ingress\"},\"payload\":\"" + data + "\"}\n";
-        ByteBuffer buf = ByteBuffer.wrap(json.getBytes());
-        
-        for (int i = 0; i < count; i++) {
-            buf.rewind();
-            while (buf.hasRemaining()) channel.write(buf);
-        }
+        // OIPC v2.12/v2.13 only defines the V3 binary frame format; there is no JSON wire
+        // framing. Fail fast rather than emitting bytes the server will reject as bad magic.
+        throw new UnsupportedOperationException(
+            "JSON protocols are not supported by the OIPC v2.13 (V3-binary) transport — use --protocol=BINARY");
     }
 }
