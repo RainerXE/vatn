@@ -396,6 +396,11 @@ WEBADMIN_EOF
     <string>${INSTALL_DIR}/logs/webadmin.out.log</string>
     <key>StandardErrorPath</key>
     <string>${INSTALL_DIR}/logs/webadmin.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>VATN_ADMIN_USER</key>
+        <string>admin</string>
+    </dict>
 </dict>
 </plist>
 EOF
