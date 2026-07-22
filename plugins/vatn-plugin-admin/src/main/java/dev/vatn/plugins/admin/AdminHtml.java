@@ -10,6 +10,7 @@ final class AdminHtml {
 
     static String render(String basePath, List<VAdminContribution> contributions) {
         String navLinks = contributions.stream()
+            .filter(c -> c.path() != null && c.path().startsWith("/"))
             .map(c -> "<a href=\"" + esc(c.path()) + "\" class=\"text-gray-300 hover:text-white transition text-xs\">"
                    + esc(c.icon()) + " " + esc(c.title()) + "</a>")
             .collect(Collectors.joining("\n          "));
@@ -98,18 +99,11 @@ final class AdminHtml {
          class="text-xs">Loading plugins...</div>
   </div>
 
-  <!-- Row: Memory + Performance -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-      <h2 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Memory</h2>
-      <div hx-get="__BASE__/fragments/jvm" hx-trigger="load, every 10s"
-           class="text-xs">Loading JVM data...</div>
-    </div>
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-      <h2 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Performance</h2>
-      <div hx-get="__BASE__/fragments/jvm" hx-trigger="load, every 10s"
-           class="text-xs">Loading JVM data...</div>
-    </div>
+  <!-- JVM / System -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <h2 class="text-xs text-gray-500 uppercase tracking-wider mb-3">JVM / System</h2>
+    <div hx-get="__BASE__/fragments/jvm" hx-trigger="load, every 10s"
+         class="text-xs">Loading JVM data...</div>
   </div>
 
   <!-- Workflows -->
@@ -162,8 +156,6 @@ final class AdminHtml {
     setTimeout(() => htmx.trigger('#plugins-section', 'load'), 500);
   }
 
-  if (!sessionStorage.getItem('vatn_admin_token')) {
-  }
 </script>
 </body>
 </html>
