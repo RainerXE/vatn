@@ -1,4 +1,5 @@
 # vatn-plugin-fts
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Full-text search backed by SQLite FTS5 with BM25 ranking and snippet extraction.
 

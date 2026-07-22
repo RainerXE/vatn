@@ -61,7 +61,7 @@ public class AdminPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.admin"; }
     @Override public String getName()    { return "VATN Admin UI"; }
-    @Override public String getVersion() { return "1.0-alpha.14"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

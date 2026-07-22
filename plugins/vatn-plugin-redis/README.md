@@ -1,4 +1,5 @@
 # vatn-plugin-redis
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides Redis key-value operations and pub/sub messaging via Jedis.
 

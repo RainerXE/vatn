@@ -46,7 +46,7 @@ public class AuthPlugin implements VNodePlugin {
 
     private static final String PLUGIN_ID = "dev.vatn.plugins.auth";
     private static final String PLUGIN_NAME = "VATN Auth Plugin";
-    private static final String PLUGIN_VERSION = "1.0-SNAPSHOT";
+    private static final String PLUGIN_VERSION = "1.0-alpha.14";
 
     private final AuthConfig config;
     private final ObjectMapper mapper;

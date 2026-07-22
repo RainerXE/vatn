@@ -1,4 +1,5 @@
 # vatn-plugin-indexer
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Pipeline stage that reads a JSON stream, sorts entries by title, and relays the sorted output to a remote VATN node.
 

@@ -1,4 +1,5 @@
 # vatn-plugin-swagger
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Serves an OpenAPI 3.0 spec and a Swagger UI for exploring your node's API.
 

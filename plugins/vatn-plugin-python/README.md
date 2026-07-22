@@ -1,4 +1,5 @@
 # vatn-plugin-python
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Sandboxed Python process management for VATN nodes — with **Pinokio-compatible `run[]` script format**, virtual environment management (uv / pip / conda), supervised daemon processes, and a live admin UI.
 

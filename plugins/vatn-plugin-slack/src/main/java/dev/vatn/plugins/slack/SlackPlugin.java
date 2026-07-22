@@ -32,7 +32,7 @@ public class SlackPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.slack"; }
     @Override public String getName()    { return "VATN Slack Plugin"; }
-    @Override public String getVersion() { return "1.0-alpha.14"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

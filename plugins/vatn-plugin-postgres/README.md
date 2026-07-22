@@ -1,4 +1,5 @@
 # vatn-plugin-postgres
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides a HikariCP-managed PostgreSQL connection pool as a VATN service.
 

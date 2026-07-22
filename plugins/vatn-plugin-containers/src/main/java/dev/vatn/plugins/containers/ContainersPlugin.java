@@ -35,7 +35,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
     @Override
     public String getVersion() {
-        return "1.0-alpha.14";
+        return "1.0-alpha.14-preview";
     }
 
     @Override

@@ -1,4 +1,5 @@
 # vatn-plugin-mongodb
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides a managed MongoDB connection as a VATN service.
 

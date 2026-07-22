@@ -1,4 +1,5 @@
 # vatn-plugin-activitypub
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Turns a VATN node into an ActivityPub actor so it can federate with Mastodon, Pixelfed, and other Fediverse software.
 

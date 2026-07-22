@@ -1,4 +1,5 @@
 # vatn-plugin-auth
+![Stability](https://img.shields.io/badge/stability-stable-green)
 
 JWT authentication for VATN nodes in three lines of setup. Adds login, token refresh, and bearer token validation — all over standard HTTP.
 

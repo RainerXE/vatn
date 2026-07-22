@@ -1,4 +1,5 @@
 # vatn-plugin-admin
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Serves a built-in HTML dashboard for inspecting a live VATN node.
 

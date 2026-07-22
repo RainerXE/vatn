@@ -1,4 +1,5 @@
 # vatn-plugin-metrics
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Exposes a Prometheus-compatible metrics endpoint powered by Micrometer.
 

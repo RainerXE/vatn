@@ -58,6 +58,17 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Plugin smoke-test dependencies (no-arg constructors) -->
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-admin</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-bcrypt</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-containers</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-devenv</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-fts</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-metrics</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-node</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-python</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-security</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>dev.vatn.plugins</groupId><artifactId>vatn-plugin-wasm</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -72,6 +83,12 @@
         <dependency>
             <groupId>dev.vatn</groupId>
             <artifactId>vatn-cli</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-test</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

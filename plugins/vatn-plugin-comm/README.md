@@ -1,4 +1,5 @@
 # vatn-plugin-comm — Communication Sidecar Plugin
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 A unified messaging hub for VATN that manages outbound agent connections to **Telegram**, **Signal**, and **RCS** channels. Each channel runs as a `VAgent` — a lifecycle-managed background component that owns its external connection. Active-passive failover is built in.
 

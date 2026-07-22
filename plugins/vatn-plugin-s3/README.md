@@ -1,4 +1,5 @@
 # vatn-plugin-s3
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Object storage via AWS S3 or any S3-compatible service (MinIO, Cloudflare R2, DigitalOcean Spaces).
 

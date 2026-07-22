@@ -1,4 +1,5 @@
 # vatn-plugin-terminalphone
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Anonymous, end-to-end encrypted voice and text over Tor hidden services — a VATN-native port of the [TerminalPhone](https://gitlab.com/here_forawhile/terminalphone) walkie-talkie concept.
 

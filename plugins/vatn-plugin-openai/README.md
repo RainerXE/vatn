@@ -1,4 +1,5 @@
 # vatn-plugin-openai
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides LLM completion and chat via any OpenAI-compatible API endpoint.
 

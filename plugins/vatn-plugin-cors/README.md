@@ -1,4 +1,5 @@
 # vatn-plugin-cors
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Adds Cross-Origin Resource Sharing (CORS) headers to all HTTP responses.
 

@@ -1,4 +1,5 @@
 # vatn-plugin-security
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Drop-in HTTP security headers for VATN nodes. One line to add, zero configuration required.
 

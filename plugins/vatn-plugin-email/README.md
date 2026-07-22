@@ -1,4 +1,5 @@
 # vatn-plugin-email
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Sends email via SMTP from a VATN node.
 

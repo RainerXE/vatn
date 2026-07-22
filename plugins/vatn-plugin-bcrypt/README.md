@@ -1,4 +1,5 @@
 # vatn-plugin-bcrypt
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Provides BCrypt password hashing and verification as a VATN service.
 

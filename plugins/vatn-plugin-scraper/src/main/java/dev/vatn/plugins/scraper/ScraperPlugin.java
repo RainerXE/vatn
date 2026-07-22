@@ -28,7 +28,7 @@ public class ScraperPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.scraper"; }
     @Override public String getName()    { return "VATN Scraper Plugin"; }
-    @Override public String getVersion() { return "1.0-alpha.14"; }
+    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

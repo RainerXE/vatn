@@ -1,4 +1,5 @@
 # vatn-plugin-wasm
+![Stability](https://img.shields.io/badge/stability-stable-green)
 
 Sandboxed WebAssembly execution for VATN nodes — run native code compiled from Rust, C, Go, Zig, or any WASI-compatible language inside the JVM with capability-based security and per-call audit logging.
 

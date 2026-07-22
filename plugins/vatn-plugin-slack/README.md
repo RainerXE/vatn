@@ -1,4 +1,5 @@
 # vatn-plugin-slack
+![Stability](https://img.shields.io/badge/stability-preview-yellow)
 
 Sends Slack notifications via an Incoming Webhook URL.
 
