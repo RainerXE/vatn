@@ -93,7 +93,7 @@ vatn/
 ├── vatn-bench/                 ← JMH benchmarks + load-test scripts
 ├── vatn-webadmin/              ← Web Admin (bundled daemon — see below)
 │
-├── plugins/                    ← Official plugin suite (24 plugins)
+├── plugins/                    ← Official plugin suite (25 plugins)
 │   ├── vatn-plugin-admin/
 │   ├── vatn-plugin-auth/
 │   ├── vatn-plugin-containers/
