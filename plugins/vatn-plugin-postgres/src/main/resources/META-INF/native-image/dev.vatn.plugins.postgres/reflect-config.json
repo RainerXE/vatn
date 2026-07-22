@@ -1,0 +1,7 @@
+[
+  {
+    "name": "dev.vatn.plugins.postgres.DataSourceServiceImpl",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  }
+]

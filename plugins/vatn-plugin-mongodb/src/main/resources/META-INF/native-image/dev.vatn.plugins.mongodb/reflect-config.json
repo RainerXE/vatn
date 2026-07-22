@@ -1,0 +1,9 @@
+[
+  {
+    "name": "dev.vatn.plugins.mongodb.MongoServiceImpl",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  }
+]

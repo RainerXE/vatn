@@ -8,36 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-/**
- * PostgreSQL plugin for VATN. Registers a HikariCP-pooled {@link DataSource}
- * in the node context so any plugin or handler can borrow connections.
- *
- * <pre>{@code
- * PostgresConfig config = PostgresConfig
- *     .of("localhost", 5432, "mydb", "user", "secret")
- *     .withPoolSize(10);
- *
- * VNodeRunner.create(8080)
- *     .addPlugin(new PostgresPlugin(config))
- *     .addPlugin(new MyAppPlugin())
- *     .start();
- *
- * // Inside any plugin
- * DataSource ds = ctx.getService(DataSourceService.class).orElseThrow().dataSource();
- * try (var conn = ds.getConnection();
- *      var ps   = conn.prepareStatement("SELECT id, name FROM users WHERE id = ?")) {
- *     ps.setInt(1, userId);
- *     var rs = ps.executeQuery();
- *     ...
- * }
- * }</pre>
- */
 public class PostgresPlugin implements VNodePlugin {
 
     private static final Logger log = LoggerFactory.getLogger(PostgresPlugin.class);
 
     private final PostgresConfig config;
-    private HikariDataSource dataSource;
+    private DataSourceServiceImpl service;
 
     public PostgresPlugin(PostgresConfig config) {
         this.config = config;
@@ -57,9 +33,15 @@ public class PostgresPlugin implements VNodePlugin {
         hikari.setConnectionTimeout(config.getConnectionTimeoutMs());
         hikari.setAutoCommit(config.isAutoCommit());
         hikari.setPoolName("vatn-postgres");
+        hikari.setIdleTimeout(config.getIdleTimeoutMs());
+        hikari.setMaxLifetime(config.getMaxLifetimeMs());
+        hikari.setMinimumIdle(config.getMinimumIdle());
+        hikari.setLeakDetectionThreshold(config.getLeakDetectionThresholdMs());
+        hikari.setInitializationFailTimeout(-1);
 
-        dataSource = new HikariDataSource(hikari);
-        ctx.registerService(DataSourceService.class, () -> dataSource);
+        var dataSource = new HikariDataSource(hikari);
+        service = new DataSourceServiceImpl(dataSource);
+        ctx.registerService(DataSourceService.class, service);
         ctx.registerHealthCheck("postgres", () -> {
             try (var conn = dataSource.getConnection()) { return conn.isValid(1); }
             catch (java.sql.SQLException e) { return false; }
@@ -71,8 +53,8 @@ public class PostgresPlugin implements VNodePlugin {
 
     @Override
     public void onShutdown() {
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
+        if (service != null) {
+            service.close();
             log.info("PostgreSQL connection pool closed.");
         }
     }

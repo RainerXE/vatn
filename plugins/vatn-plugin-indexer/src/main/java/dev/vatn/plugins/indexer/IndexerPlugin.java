@@ -1,5 +1,7 @@
 package dev.vatn.plugins.indexer;
 
+import dev.vatn.api.VHttpRoutes;
+import dev.vatn.api.VHttpService;
 import dev.vatn.api.VJson;
 import dev.vatn.api.VNodeContext;
 import dev.vatn.api.VNodePlugin;
@@ -14,10 +16,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * VATN plugin that receives a JSON stream, sorts entries by {@code title},
- * and relays them to a downstream node.
- */
 public class IndexerPlugin implements VNodePlugin {
 
     private static final Logger log = LoggerFactory.getLogger(IndexerPlugin.class);
@@ -29,6 +27,11 @@ public class IndexerPlugin implements VNodePlugin {
     @Override
     public void onInitialize(VNodeContext ctx) {
         log.info("Indexer plugin initialized on node: {}", ctx.getNodeId());
+
+        InMemoryIndexService indexService = new InMemoryIndexService();
+        ctx.registerService(IndexerService.class, indexService);
+        ctx.registerHealthCheck("indexer", () -> indexService != null);
+        ctx.register("/index", new IndexHttpService(ctx));
     }
 
     @Override
@@ -36,15 +39,12 @@ public class IndexerPlugin implements VNodePlugin {
         log.info("Indexer plugin stopped.");
     }
 
-    /**
-     * Reads the named stream, sorts entries by {@code title}, and relays the
-     * sorted result to {@code nextNodeUrl/stream/<nextStreamId>}.
-     */
     public void processAndRelay(VNodeContext ctx, String streamId, String nextNodeUrl, String nextStreamId) {
         Thread.ofVirtual().start(() -> {
             try {
                 VJson json = ctx.getJson();
                 VStream stream = ctx.getStream();
+                IndexerService indexer = ctx.getService(IndexerService.class).orElse(null);
 
                 InputStream in = openWithRetry(stream, streamId);
                 if (in == null) {
@@ -57,6 +57,10 @@ public class IndexerPlugin implements VNodePlugin {
                 json.parseStream(in, Map.class, parser);
 
                 entries.sort(Comparator.comparing(m -> String.valueOf(m.getOrDefault("title", ""))));
+
+                if (indexer != null) {
+                    indexer.indexBatch(entries);
+                }
 
                 String targetPath = nextNodeUrl + "/stream/" + nextStreamId;
                 try (OutputStream out = stream.createRemoteOutput(targetPath)) {
@@ -82,5 +86,53 @@ public class IndexerPlugin implements VNodePlugin {
             }
         }
         return null;
+    }
+
+    private record IndexHttpService(VNodeContext ctx) implements VHttpService {
+        @Override
+        public void routing(VHttpRoutes routes) {
+            routes.post("/ingest", (req, res) -> {
+                String body = req.getBody();
+                VJson json = ctx.getJson();
+                IndexerService service = ctx.getService(IndexerService.class)
+                        .orElseThrow(() -> new IllegalStateException("IndexerService not registered"));
+
+                try {
+                    List<Map<String, Object>> docs = json.parse(body, List.class);
+                    service.indexBatch(docs);
+                } catch (Exception e) {
+                    Map<String, Object> doc = json.parse(body, Map.class);
+                    service.indexBatch(List.of(doc));
+                }
+                res.status(200).send("OK");
+            });
+
+            routes.get("/search", (req, res) -> {
+                String query = req.getQueryParam("q", "");
+                IndexerService service = ctx.getService(IndexerService.class)
+                        .orElseThrow(() -> new IllegalStateException("IndexerService not registered"));
+                List<Map<String, Object>> results = service.search(query);
+                res.status(200).sendJson(ctx.getJson().stringify(results));
+            });
+
+            routes.get("/{id}", (req, res) -> {
+                String id = req.getPathParam("id");
+                IndexerService service = ctx.getService(IndexerService.class)
+                        .orElseThrow(() -> new IllegalStateException("IndexerService not registered"));
+                Map<String, Object> doc = service.get(id);
+                if (doc == null) {
+                    res.status(404).send("Not found");
+                } else {
+                    res.status(200).sendJson(ctx.getJson().stringify(doc));
+                }
+            });
+
+            routes.delete("/clear", (req, res) -> {
+                IndexerService service = ctx.getService(IndexerService.class)
+                        .orElseThrow(() -> new IllegalStateException("IndexerService not registered"));
+                service.clear();
+                res.status(200).send("OK");
+            });
+        }
     }
 }

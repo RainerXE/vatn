@@ -1,0 +1,9 @@
+[
+  {
+    "name": "dev.vatn.plugins.slack.SlackWebhookService",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  }
+]

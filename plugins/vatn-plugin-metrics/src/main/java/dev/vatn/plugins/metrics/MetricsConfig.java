@@ -1,31 +1,40 @@
 package dev.vatn.plugins.metrics;
 
-/** Configuration for the Prometheus metrics plugin. */
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public final class MetricsConfig {
 
     private final String path;
     private final boolean jvmMetrics;
+    private final Map<String, String> globalTags;
 
-    private MetricsConfig(String path, boolean jvmMetrics) {
+    private MetricsConfig(String path, boolean jvmMetrics, Map<String, String> globalTags) {
         this.path = path;
         this.jvmMetrics = jvmMetrics;
+        this.globalTags = globalTags;
     }
 
-    /** Default config: {@code /metrics} endpoint with JVM metrics enabled. */
     public static MetricsConfig defaults() {
-        return new MetricsConfig("/metrics", true);
+        return new MetricsConfig("/metrics", true, Collections.emptyMap());
     }
 
-    /** Override the scrape path (default {@code /metrics}). */
     public MetricsConfig withPath(String path) {
-        return new MetricsConfig(path, jvmMetrics);
+        return new MetricsConfig(path, jvmMetrics, globalTags);
     }
 
-    /** Disable automatic JVM memory, GC, thread and CPU metrics. */
     public MetricsConfig withoutJvmMetrics() {
-        return new MetricsConfig(path, false);
+        return new MetricsConfig(path, false, globalTags);
     }
 
-    public String getPath()       { return path; }
-    public boolean isJvmMetrics() { return jvmMetrics; }
+    public MetricsConfig withTag(String key, String value) {
+        Map<String, String> tags = new LinkedHashMap<>(globalTags);
+        tags.put(key, value);
+        return new MetricsConfig(path, jvmMetrics, tags);
+    }
+
+    public String getPath()                         { return path; }
+    public boolean isJvmMetrics()                   { return jvmMetrics; }
+    public Map<String, String> getGlobalTags()       { return globalTags; }
 }

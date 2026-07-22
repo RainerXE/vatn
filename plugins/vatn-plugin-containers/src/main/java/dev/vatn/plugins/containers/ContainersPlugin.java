@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static dev.vatn.plugins.containers.Sanitizer.sanitizeHtml;
+
 public class ContainersPlugin implements VNodePlugin, VAdminContribution {
     private static final Logger log = LoggerFactory.getLogger(ContainersPlugin.class);
 
@@ -40,17 +42,34 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
     @Override
     public void onInitialize(VNodeContext context) {
-        // 1. Initialize Managers
+        // 1. Detect OS
+        boolean fedoraDerivative = OsDetector.isFedoraDerivative();
+        log.info("Detected OS: {} ({})", OsDetector.distributionName(),
+            fedoraDerivative ? "Fedora derivative" : "other Linux");
+
+        // 2. Initialize Managers
         VProcessService processService = context.getService(VProcessService.class).orElseThrow();
         VJson json = context.getJson();
 
-        managers = List.of(
-            new GenericContainerManager(VContainerEngine.DOCKER, "docker", processService, json),
-            new GenericContainerManager(VContainerEngine.PODMAN, "podman", processService, json),
-            new DistroboxManager(processService)
-        );
+        List<ContainerManager> mgrList = new ArrayList<>();
+        mgrList.add(new GenericContainerManager(VContainerEngine.DOCKER, "docker", processService, json));
+        mgrList.add(new GenericContainerManager(VContainerEngine.PODMAN, "podman", processService, json));
+        mgrList.add(new DistroboxManager(processService));
 
-        // 2. Register with Workload Registry
+        // On Fedora derivatives, also try Toolbx
+        if (fedoraDerivative) {
+            mgrList.add(new ToolboxManager(processService));
+            log.info("Fedora derivative detected — Toolbx support enabled");
+        }
+
+        managers = List.copyOf(mgrList);
+
+        // 3. Initialize Template Service and Container Creator
+        TemplateService templateService = new JsonTemplateStore(context.getWorkspacePath());
+        context.registerService(TemplateService.class, templateService);
+        ContainerCreator creator = new ContainerCreator(processService, managers);
+
+        // 4. Register with Workload Registry
         context.getService(VWorkloadRegistry.class).ifPresent(registry -> {
             registry.registerProvider(new ContainersWorkloadProvider(managers));
         });
@@ -61,7 +80,10 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
         // 4. Register WebSocket Route for Web Terminal
         context.registerWebSocket("/vatn/containers/ws/exec", new WebTerminalHandler(managers));
 
-        // 5. Register HTTP Web Dashboard UI
+        // 5. Register health check
+        context.registerHealthCheck("containers", () -> managers != null && !managers.isEmpty());
+
+        // 6. Register HTTP Web Dashboard UI
         context.register("/vatn/containers", routes -> {
             
             // Base Page HTML
@@ -80,12 +102,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
                 int pluginsCount = context.getService(VPluginRegistry.class)
                     .map(r -> r.getPlugins().size()).orElse(0);
+                String osName = sanitizeHtml(OsDetector.distributionName());
                 
                 String html = String.format(
                     "<div style='margin-bottom: 12px;'><strong>Uptime:</strong> %s</div>" +
                     "<div style='margin-bottom: 12px;'><strong>Lattice Node:</strong> <span style='font-family: monospace; color: var(--accent);'>%s</span></div>" +
+                    "<div style='margin-bottom: 12px;'><strong>OS:</strong> %s</div>" +
                     "<div><strong>Hosted Plugins:</strong> %d</div>",
-                    uptime, context.getNodeId(), pluginsCount
+                    uptime, context.getNodeId(), osName, pluginsCount
                 );
                 res.sendHtml(html);
             });
@@ -149,9 +173,10 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
             routes.get("/api/containers", (req, res) -> {
                 String filter = req.getQueryParam("engine", "RAW");
                 
-                // Get all distrobox container IDs first for intelligent separation
-                List<String> distroboxIds = managers.stream()
-                    .filter(m -> m.getEngineType() == VContainerEngine.DISTROBOX)
+                // Get all distrobox and toolbox container IDs for intelligent separation
+                List<String> overlayIds = managers.stream()
+                    .filter(m -> m.getEngineType() == VContainerEngine.DISTROBOX
+                               || m.getEngineType() == VContainerEngine.TOOLBOX)
                     .flatMap(m -> m.listContainers().stream())
                     .map(VContainer::id)
                     .collect(Collectors.toList());
@@ -160,7 +185,10 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                 for (ContainerManager m : managers) {
                     if ("DISTROBOX".equalsIgnoreCase(filter) && m.getEngineType() == VContainerEngine.DISTROBOX) {
                         containerList.addAll(m.listContainers());
-                    } else if ("RAW".equalsIgnoreCase(filter) && m.getEngineType() != VContainerEngine.DISTROBOX) {
+                    } else if ("TOOLBOX".equalsIgnoreCase(filter) && m.getEngineType() == VContainerEngine.TOOLBOX) {
+                        containerList.addAll(m.listContainers());
+                    } else if ("RAW".equalsIgnoreCase(filter) && m.getEngineType() != VContainerEngine.DISTROBOX
+                            && m.getEngineType() != VContainerEngine.TOOLBOX) {
                         containerList.addAll(m.listContainers());
                     }
                 }
@@ -182,28 +210,37 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                   .append("<tbody>");
 
                 for (VContainer c : containerList) {
-                    boolean isDistroboxManaged = distroboxIds.contains(c.id()) && c.engine() != VContainerEngine.DISTROBOX;
+                    boolean isOverlayManaged = overlayIds.contains(c.id())
+                        && c.engine() != VContainerEngine.DISTROBOX
+                        && c.engine() != VContainerEngine.TOOLBOX;
+                    boolean isToolboxMgr = c.engine() == VContainerEngine.TOOLBOX;
                     String statusClass = c.isRunning() ? "status-running" : "status-stopped";
                     String statusLabel = c.isRunning() ? "RUNNING" : "STOPPED";
+                    String ename = c.engine().name();
                     
                     sb.append("<tr>")
-                      .append("<td><strong style='color: var(--text-main);'>").append(c.name()).append("</strong></td>")
-                      .append("<td><span style='font-size: 12px; color: var(--text-muted);'>").append(c.engine().name()).append("</span></td>")
-                      .append("<td style='font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);'>").append(c.image()).append("</td>")
+                      .append("<td><strong style='color: var(--text-main);'>").append(sanitizeHtml(c.name())).append("</strong></td>")
+                      .append("<td><span style='font-size: 12px; color: var(--text-muted);'>").append(ename).append("</span></td>")
+                      .append("<td style='font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);'>").append(sanitizeHtml(c.image())).append("</td>")
                       .append("<td><span class='status-pill ").append(statusClass).append("'>").append(statusLabel).append("</span></td>")
                       .append("<td>");
 
-                    if (isDistroboxManaged) {
-                        // Mark clearly as managed by distrobox
-                        sb.append("<span style='font-size: 11px; color: var(--accent); font-weight: 500; opacity: 0.8;'>Managed by Distrobox</span>");
+                    if (isOverlayManaged) {
+                        sb.append("<span style='font-size: 11px; color: var(--accent); font-weight: 500; opacity: 0.8;'>Managed by Distrobox/Toolbox</span>");
+                    } else if (isToolboxMgr) {
+                        sb.append("<span style='font-size: 11px; color: var(--accent); font-weight: 500; opacity: 0.8;'>Toolbox</span>");
                     } else {
-                        // Actions
+                        String safeEngine = sanitizeHtml(ename);
+                        String safeId = sanitizeHtml(c.id());
                         String playBtn = c.isRunning()
-                            ? String.format("<button class='btn-icon' hx-post='%s/api/action/%s/%s/stop' hx-swap='none' title='Stop'>&#9632;</button>", "/vatn/containers", c.engine().name(), c.id())
-                            : String.format("<button class='btn-icon' hx-post='%s/api/action/%s/%s/start' hx-swap='none' title='Start'>&#9654;</button>", "/vatn/containers", c.engine().name(), c.id());
+                            ? String.format("<button class='btn-icon' hx-post='%s/api/action/%s/%s/stop' hx-swap='none' title='Stop'>&#9632;</button>", "/vatn/containers", safeEngine, safeId)
+                            : String.format("<button class='btn-icon' hx-post='%s/api/action/%s/%s/start' hx-swap='none' title='Start'>&#9654;</button>", "/vatn/containers", safeEngine, safeId);
                         
                         sb.append(playBtn);
-                        sb.append(String.format(" <button class='btn-icon' onclick='openTerminal(\"%s\", \"%s\", \"%s\")' title='Console'>&#9000;</button>", c.engine().name(), c.id(), c.name()));
+                        sb.append(" <button class='btn-icon' onclick='openTerminal(\"").append(Sanitizer.sanitizeJs(ename))
+                          .append("\", \"").append(Sanitizer.sanitizeJs(c.id()))
+                          .append("\", \"").append(Sanitizer.sanitizeJs(c.name()))
+                          .append("\")' title='Console'>&#9000;</button>");
                     }
 
                     sb.append("</td>")
@@ -234,6 +271,64 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                     .findFirst()
                     .ifPresent(m -> m.stopContainer(id));
                 res.sendEmpty();
+            });
+
+            // Endpoint: List Templates
+            routes.get("/api/templates", (req, res) -> {
+                var list = templateService.list();
+                res.send(json.stringify(list));
+            });
+
+            // Endpoint: Get Template by ID
+            routes.get("/api/templates/{id}", (req, res) -> {
+                var t = templateService.get(req.getPathParam("id"));
+                if (t.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
+                res.send(json.stringify(t.get()));
+            });
+
+            // Endpoint: Save Template (create or update)
+            routes.post("/api/templates", (req, res) -> {
+                try {
+                    var t = json.parse(req.getBody(), ContainerTemplate.class);
+                    var saved = templateService.save(t);
+                    res.send(json.stringify(saved));
+                } catch (Exception e) {
+                    res.status(400).send("{\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
+            });
+
+            // Endpoint: Delete Template
+            routes.delete("/api/templates/{id}", (req, res) -> {
+                templateService.delete(req.getPathParam("id"));
+                res.sendEmpty();
+            });
+
+            // Endpoint: Create Container from Template
+            routes.post("/api/containers/create", (req, res) -> {
+                try {
+                    CreateRequest cr = json.parse(req.getBody(), CreateRequest.class);
+                    ContainerTemplate template;
+                    if (cr.templateId() != null && !cr.templateId().isBlank()) {
+                        template = templateService.get(cr.templateId()).orElse(null);
+                        if (template == null) {
+                            res.status(404).send("{\"error\":\"Template not found\"}");
+                            return;
+                        }
+                    } else {
+                        template = new ContainerTemplate(
+                            null, cr.name(), "", cr.engine(), cr.image(),
+                            cr.containerName(), cr.command(), null,
+                            cr.ports(), cr.volumes(), cr.env() != null ? cr.env() : Map.of(),
+                            Map.of(), null, null, null,
+                            cr.postStartCommands(), cr.postStartWaitMs(), 0
+                        );
+                    }
+                    var result = creator.createFromTemplate(template);
+                    res.send(json.stringify(result));
+                } catch (Exception e) {
+                    log.error("Container creation failed", e);
+                    res.status(500).send("{\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
             });
 
             // Endpoint: Registered HTTP Routes
@@ -268,4 +363,24 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
     public void onShutdown() {
         log.info("Shutting down Containers Management Plugin.");
     }
+
+    private static String sanitizeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r");
+    }
+
+    public record CreateRequest(
+        String templateId,
+        String name,
+        String engine,
+        String image,
+        String containerName,
+        String command,
+        List<String> ports,
+        List<String> volumes,
+        Map<String, String> env,
+        List<String> postStartCommands,
+        int postStartWaitMs
+    ) {}
 }

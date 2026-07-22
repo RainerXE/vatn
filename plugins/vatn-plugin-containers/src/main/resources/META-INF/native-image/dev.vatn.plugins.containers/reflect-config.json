@@ -1,0 +1,51 @@
+[
+  {
+    "name": "dev.vatn.plugins.containers.GenericContainerManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.DistroboxManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.WebTerminalHandler",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainersWorkloadProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ToolboxManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.OsDetector",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerTemplate",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.JsonTemplateStore",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerCreator",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainersPlugin$CreateRequest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  }
+]

@@ -338,9 +338,30 @@ public final class ContainersHtml {
     .tab-content.active {
       display: block;
     }
+
+    /* Template Form */
+    .template-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .template-form .full { grid-column: 1 / -1; }
+    .template-form label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block; }
+    .template-form input, .template-form select, .template-form textarea {
+      width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--card-border);
+      background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 13px; font-family: var(--font-mono);
+    }
+    .template-form textarea { min-height: 60px; resize: vertical; }
+    .template-form input:focus, .template-form select:focus, .template-form textarea:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .template-actions { display: flex; gap: 8px; align-items: center; }
+    .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px;
+           background: rgba(59,130,246,0.1); color: var(--accent); margin: 2px; }
+    .result-box { background: rgba(16,185,129,0.1); border: 1px solid var(--green); border-radius: 8px;
+                  padding: 12px; margin-top: 12px; font-size: 13px; }
+    .result-box.error { background: rgba(239,68,68,0.1); border-color: var(--red); }
+    .result-box pre { font-family: var(--font-mono); font-size: 12px; margin-top: 8px;
+                      background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; }
   </style>
 </head>
-<body x-data="{ currentTab: 'overview', termOpen: false, termTitle: '' }">
+<body x-data="dashboard()">
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -358,6 +379,9 @@ public final class ContainersHtml {
       </li>
       <li class="nav-item" :class="{ 'active': currentTab === 'network' }" @click="currentTab = 'network'">
         <span>&#9072;</span> Network & Routes
+      </li>
+      <li class="nav-item" :class="{ 'active': currentTab === 'templates' }" @click="currentTab = 'templates'; showTemplateForm = false; editingTemplate = null; createResult = null">
+        <span>&#9733;</span> Templates
       </li>
     </ul>
     
@@ -423,6 +447,16 @@ public final class ContainersHtml {
           </div>
         </div>
 
+        <!-- Toolbox Containers (Fedora) -->
+        <div class="glass-card col-12">
+          <div class="card-title">
+            <span>Toolbox Containers</span>
+          </div>
+          <div hx-get="__BASE__/api/containers?engine=TOOLBOX" hx-trigger="load, every 5s">
+            Loading Toolbox containers...
+          </div>
+        </div>
+
         <!-- Docker / Podman Containers -->
         <div class="glass-card col-12">
           <div class="card-title">
@@ -448,6 +482,111 @@ public final class ContainersHtml {
       </div>
     </div>
 
+    <!-- TAB: Templates -->
+    <div class="tab-content" :class="{ 'active': currentTab === 'templates' }">
+      <div class="dashboard-grid">
+        <!-- Template List -->
+        <div class="glass-card col-12" x-show="!showTemplateForm">
+          <div class="card-title">
+            <span>Container Templates</span>
+            <button class="btn" @click="showTemplateForm = true; editingTemplate = null; createResult = null">
+              + New Template
+            </button>
+          </div>
+          <div hx-get="__BASE__/api/templates" hx-trigger="load, every 10s" hx-swap="innerHTML">
+            Loading templates...
+          </div>
+        </div>
+
+        <!-- Template Form / Editor -->
+        <div class="glass-card col-12" x-show="showTemplateForm" x-cloak>
+          <div class="card-title">
+            <span x-text="editingTemplate ? 'Edit Template' : 'New Template'">Template Editor</span>
+            <div class="template-actions">
+              <button class="btn" @click="saveTemplate()">Save</button>
+              <button class="btn" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted);"
+                      @click="showTemplateForm = false; editingTemplate = null; createResult = null">Cancel</button>
+            </div>
+          </div>
+          <div class="template-form">
+            <div>
+              <label>Name</label>
+              <input type="text" x-model="editingTemplate ? editingTemplate.name : templateName" placeholder="my-web-app"/>
+            </div>
+            <div>
+              <label>Engine</label>
+              <select x-model="editingTemplate ? editingTemplate.engine : templateEngine">
+                <option value="PODMAN">Podman</option>
+                <option value="DOCKER">Docker</option>
+                <option value="DISTROBOX">Distrobox</option>
+                <option value="TOOLBOX">Toolbox</option>
+              </select>
+            </div>
+            <div>
+              <label>Image</label>
+              <input type="text" x-model="editingTemplate ? editingTemplate.image : templateImage" placeholder="nginx:latest"/>
+            </div>
+            <div>
+              <label>Container Name (optional)</label>
+              <input type="text" x-model="editingTemplate ? editingTemplate.containerName : templateContainerName" placeholder="web1"/>
+            </div>
+            <div class="full">
+              <label>Ports (one per line, e.g. 8080:80)</label>
+              <textarea x-model="editingTemplate ? editingTemplate.ports.join('\n') : templatePorts" placeholder="8080:80"></textarea>
+            </div>
+            <div class="full">
+              <label>Environment Variables (one per line, e.g. ENV=prod)</label>
+              <textarea x-model="editingTemplate ? Object.entries(editingTemplate.env).map(([k,v]) => k+'='+v).join('\n') : templateEnv" placeholder="ENV=prod"></textarea>
+            </div>
+            <div class="full">
+              <label>Post-Start Commands (one per line)</label>
+              <textarea x-model="editingTemplate ? (editingTemplate.postStartCommands || []).join('\n') : templatePostStart" placeholder="touch /tmp/ready&#10;echo 'started'"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create Result -->
+        <div class="glass-card col-12" x-show="createResult" x-cloak>
+          <div class="card-title">Creation Result</div>
+          <div class="result-box" :class="{ 'error': createResult?.error }">
+            <template x-if="createResult?.error">
+              <div><strong>Error:</strong> <span x-text="createResult.error"></span></div>
+            </template>
+            <template x-if="!createResult?.error">
+              <div>
+                <div><strong>Container ID:</strong> <span x-text="createResult?.containerId" style="font-family: var(--font-mono);"></span></div>
+                <div style="margin-top: 8px;"><strong>Post-Start Results:</strong></div>
+                <template x-for="(r, i) in (createResult?.postStartResults || [])" :key="i">
+                  <div style="font-size: 12px; margin-top: 4px;">
+                    <span>Cmd <span x-text="i+1"></span>: exit code <span x-text="r.exitCode" style="font-family: var(--font-mono);"></span></span>
+                    <template x-if="r.stdout">
+                      <pre x-text="r.stdout"></pre>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <button class="btn" style="margin-top: 12px;" @click="createResult = null">Dismiss</button>
+          </div>
+        </div>
+
+        <!-- Templates List (HTMX rendered) -->
+        <div class="glass-card col-12">
+          <div class="card-title">
+            <span>Saved Templates</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Image</th><th>Engine</th><th>Ports</th><th>Post-Start</th><th>Actions</th></tr>
+            </thead>
+            <tbody hx-get="__BASE__/api/templates" hx-trigger="load, every 10s" hx-swap="innerHTML">
+              <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Interactive Terminal overlay (Dynamic xterm.js integration) -->
@@ -465,12 +604,94 @@ public final class ContainersHtml {
     let ws = null;
     let term = null;
 
+    function dashboard() {
+      return {
+        currentTab: 'overview',
+        termOpen: false,
+        termTitle: '',
+        showTemplateForm: false,
+        editingTemplate: null,
+        createResult: null,
+        templateName: '',
+        templateEngine: 'PODMAN',
+        templateImage: '',
+        templateContainerName: '',
+        templatePorts: '',
+        templateEnv: '',
+        templatePostStart: '',
+
+        editTemplate(t) {
+          this.editingTemplate = t;
+          this.showTemplateForm = true;
+          this.createResult = null;
+        },
+
+        async saveTemplate() {
+          const t = this.editingTemplate || {};
+          const ports = (this.editingTemplate ? (t.ports || []) : (this.templatePorts ? this.templatePorts.split('\n').filter(Boolean) : []));
+          const envArr = this.editingTemplate ? Object.entries(t.env || {}).map(([k,v]) => k+'='+v) : (this.templateEnv ? this.templateEnv.split('\n').filter(Boolean) : []);
+          const env = {};
+          envArr.forEach(line => { const [k, ...v] = line.split('='); if(k) env[k.trim()] = v.join('=').trim(); });
+          const postStart = this.editingTemplate ? (t.postStartCommands || []) : (this.templatePostStart ? this.templatePostStart.split('\n').filter(Boolean) : []);
+          const body = {
+            id: t.id || null,
+            name: this.editingTemplate ? t.name : this.templateName,
+            description: '',
+            engine: this.editingTemplate ? t.engine : this.templateEngine,
+            image: this.editingTemplate ? t.image : this.templateImage,
+            containerName: this.editingTemplate ? t.containerName : this.templateContainerName,
+            ports,
+            env,
+            postStartCommands: postStart,
+            postStartWaitMs: 0
+          };
+
+          try {
+            const resp = await fetch('__BASE__/api/templates', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(body)
+            });
+            if (!resp.ok) throw new Error('Save failed: ' + (await resp.text()));
+            this.showTemplateForm = false;
+            this.editingTemplate = null;
+            // trigger HTMX refresh
+            document.querySelector('[hx-get="__BASE__/api/templates"]')?.dispatchEvent(new CustomEvent('htmx:load'));
+            htmx.trigger('body', 'htmx:load');
+          } catch(e) {
+            alert('Error: ' + e.message);
+          }
+        },
+
+        deleteTemplate(id) {
+          if (!confirm('Delete this template?')) return;
+          fetch('__BASE__/api/templates/' + id, { method: 'DELETE' })
+            .then(() => htmx.trigger('body', 'htmx:load'))
+            .catch(e => alert('Error: ' + e.message));
+        },
+
+        async createFromTemplate(t) {
+          this.editingTemplate = t;
+          try {
+            const resp = await fetch('__BASE__/api/containers/create', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ templateId: t.id })
+            });
+            const result = await resp.json();
+            this.createResult = result;
+          } catch(e) {
+            this.createResult = { error: e.message };
+          }
+        }
+      };
+    }
+
     window.openTerminal = function(engine, containerId, containerName) {
-      Alpine.store('currentTab', 'containers'); // ensure state aligns
+      Alpine.store('currentTab', 'containers');
       document.querySelector('body').__x__.$data.termOpen = true;
       document.querySelector('body').__x__.$data.termTitle = 'Terminal: ' + containerName + ' (' + engine + ')';
 
-      // Reset xterm Hook
       const container = document.getElementById('xterm-hook');
       container.innerHTML = '';
 
@@ -485,33 +706,16 @@ public final class ContainersHtml {
       });
       term.open(container);
 
-      // Setup WebSocket connection (pointing to our WebTerminalHandler ws endpoint)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = protocol + '//' + window.location.host + '__BASE__/ws/exec?engine=' + engine.toLowerCase() + '&id=' + containerId;
       
       ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
-        term.write('Connected to container shell.\\r\\n');
-      };
-
-      ws.onmessage = (event) => {
-        term.write(event.data);
-      };
-
-      ws.onclose = () => {
-        term.write('\\r\\nConnection closed.\\r\\n');
-      };
-
-      ws.onerror = (err) => {
-        term.write('\\r\\nWebSocket error: ' + err.message + '\\r\\n');
-      };
-
-      term.onData((data) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
+      ws.onopen = () => { term.write('Connected to container shell.\\r\\n'); };
+      ws.onmessage = (event) => { term.write(event.data); };
+      ws.onclose = () => { term.write('\\r\\nConnection closed.\\r\\n'); };
+      ws.onerror = (err) => { term.write('\\r\\nWebSocket error: ' + err.message + '\\r\\n'); };
+      term.onData((data) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(data); });
     };
   </script>
 </body>

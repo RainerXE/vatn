@@ -99,9 +99,9 @@ class AdminFragmentHandler {
                 .append("<td class=\"py-1.5 pr-4\">").append(pluginStateBadge(state)).append("</td>")
                 .append("<td class=\"py-1.5 pr-4 text-red-400 max-w-xs truncate\">").append(lastError != null ? esc(lastError) : "").append("</td>")
                 .append("<td class=\"py-1.5 whitespace-nowrap\">")
-                .append("<button id=\"btn-restart-").append(id).append("\" onclick=\"restartPlugin('").append(escJS(id)).append("')\" title=\"Restart\"")
+                .append("<button id=\"btn-restart-").append(sanitizeHtmlAttr(id)).append("\" onclick=\"restartPlugin('").append(esc(id)).append("')\" title=\"Restart\"")
                 .append(" class=\"text-yellow-400 hover:text-yellow-300 transition px-1.5 disabled:opacity-30\">&#8634;</button>")
-                .append("<button id=\"btn-stop-").append(id).append("\" onclick=\"stopPlugin('").append(escJS(id)).append("')\" title=\"Stop\"")
+                .append("<button id=\"btn-stop-").append(sanitizeHtmlAttr(id)).append("\" onclick=\"stopPlugin('").append(esc(id)).append("')\" title=\"Stop\"")
                 .append(stopDis).append(" class=\"text-red-400 hover:text-red-300 transition px-1.5 disabled:opacity-30\">&#9632;</button>")
                 .append("</td></tr>");
         }
@@ -571,5 +571,10 @@ class AdminFragmentHandler {
         return s.replace("\\", "\\\\")
                 .replace("'", "\\'")
                 .replace("\"", "\\\"");
+    }
+
+    private static String sanitizeHtmlAttr(String s) {
+        if (s == null) return "";
+        return s.replaceAll("[^a-zA-Z0-9._:-]", "_");
     }
 }

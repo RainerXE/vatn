@@ -6,42 +6,15 @@ import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.prometheus.PrometheusConfig;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Prometheus metrics plugin for VATN.
- *
- * <p>Registers a {@link MeterRegistry} in the node context and exposes
- * a {@code /metrics} scrape endpoint in Prometheus text format.
- *
- * <pre>{@code
- * VNodeRunner.create(8080)
- *     .addPlugin(new MetricsPlugin())            // defaults: /metrics + JVM metrics
- *     .addPlugin(new MyAppPlugin())
- *     .start();
- *
- * // Custom path, no JVM metrics
- * VNodeRunner.create(8080)
- *     .addPlugin(new MetricsPlugin(
- *         MetricsConfig.defaults()
- *             .withPath("/internal/metrics")
- *             .withoutJvmMetrics()))
- *     .start();
- *
- * // Registering custom metrics from your plugin
- * MeterRegistry metrics = ctx.getService(MetricsService.class).orElseThrow().registry();
- * Counter requests = metrics.counter("app.requests.total", "endpoint", "/api/data");
- * requests.increment();
- * }</pre>
- */
 public class MetricsPlugin implements VNodePlugin {
 
     private static final Logger log = LoggerFactory.getLogger(MetricsPlugin.class);
 
     private final MetricsConfig config;
+    private MetricsServiceImpl metricsService;
 
     public MetricsPlugin() {
         this(MetricsConfig.defaults());
@@ -57,24 +30,24 @@ public class MetricsPlugin implements VNodePlugin {
 
     @Override
     public void onInitialize(VNodeContext ctx) {
-        PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+        metricsService = new MetricsServiceImpl(config);
 
         if (config.isJvmMetrics()) {
-            new JvmMemoryMetrics().bindTo(registry);
-            new JvmGcMetrics().bindTo(registry);
-            new JvmThreadMetrics().bindTo(registry);
-            new ProcessorMetrics().bindTo(registry);
+            new JvmMemoryMetrics().bindTo(metricsService.registry());
+            new JvmGcMetrics().bindTo(metricsService.registry());
+            new JvmThreadMetrics().bindTo(metricsService.registry());
+            new ProcessorMetrics().bindTo(metricsService.registry());
             log.debug("JVM metrics bound to Prometheus registry");
         }
 
-        ctx.registerService(MetricsService.class, () -> registry);
-        ctx.registerHealthCheck("metrics", () -> true);
+        ctx.registerService(MetricsService.class, metricsService);
+        ctx.registerHealthCheck("metrics", () -> metricsService.registry() != null);
 
-        // Expose /metrics scrape endpoint
+        var service = metricsService;
         ctx.register(config.getPath(), routes ->
             routes.get("", (req, res) ->
                 res.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-                   .send(registry.scrape()))
+                   .send(service.scrape()))
         );
 
         log.info("Metrics plugin initialized — scrape endpoint: {}", config.getPath());

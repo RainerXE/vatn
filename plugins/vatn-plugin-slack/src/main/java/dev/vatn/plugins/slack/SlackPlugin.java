@@ -38,7 +38,8 @@ public class SlackPlugin implements VNodePlugin {
     public void onInitialize(VNodeContext ctx) {
         SlackService service = new SlackWebhookService(config);
         ctx.registerService(SlackService.class, service);
-        log.info("SlackService registered — webhook configured");
+        ctx.registerHealthCheck("slack", () -> config.getWebhookUrl() != null && !config.getWebhookUrl().isBlank());
+        log.info("SlackService registered — webhook configured, health check registered");
     }
 
     @Override
