@@ -2,6 +2,7 @@ package dev.vatn.plugins.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.vatn.api.*;
+import dev.vatn.api.admin.*;
 import dev.vatn.api.workflow.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import java.sql.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -64,6 +66,10 @@ public class AdminPlugin implements VNodePlugin {
     @Override
     public void onInitialize(VNodeContext ctx) {
         String base = config.getBasePath();
+
+        // ── Registry for plugin nav contributions ────────────────────────────
+        var contributionRegistry = new VAdminContributionRegistryImpl();
+        ctx.registerService(VAdminContributionRegistry.class, contributionRegistry);
 
         ctx.register(base, routes -> {
 
@@ -207,6 +213,17 @@ public class AdminPlugin implements VNodePlugin {
                 }
                 sendJson(res, collectQueueStats(dbOpt.get()));
             });
+
+            // ── Fragment endpoints for HTMX dashboard ────────────────────────
+            var fragments = new AdminFragmentHandler(ctx, config, startedAt);
+            routes.get("/fragments/overview",  fragments::overview);
+            routes.get("/fragments/plugins",   fragments::plugins);
+            routes.get("/fragments/health",    fragments::health);
+            routes.get("/fragments/workflows", fragments::workflows);
+            routes.get("/fragments/workloads", fragments::workloads);
+            routes.get("/fragments/jvm",       fragments::jvm);
+            routes.get("/fragments/queues",    fragments::queues);
+            routes.get("/fragments/routes",    fragments::routes);
         });
 
         if (config.isAuthEnabled()) {
@@ -340,7 +357,7 @@ public class AdminPlugin implements VNodePlugin {
         }
     }
 
-    private static Map<String, Object> runToMap(VDagRun run) {
+    static Map<String, Object> runToMap(VDagRun run) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("runId",       run.runId());
         m.put("dagId",       run.dagId());
@@ -363,4 +380,10 @@ public class AdminPlugin implements VNodePlugin {
         long d = h / 24; h %= 24;
         return d + "d " + h + "h";
     }
+}
+
+final class VAdminContributionRegistryImpl implements VAdminContributionRegistry {
+    private final java.util.List<VAdminContribution> contributions = new CopyOnWriteArrayList<>();
+    @Override public void register(VAdminContribution c) { contributions.add(c); }
+    @Override public java.util.List<VAdminContribution> getContributions() { return java.util.List.copyOf(contributions); }
 }
