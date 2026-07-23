@@ -10,7 +10,6 @@
 #
 #  Env-var overrides:
 #    VATN_INSTALL_DIR    — target directory               (default: ~/.vatn)
-#    VATN_JAVA           — "graal" | "graalce" | "skip"   (default: interactive)
 #    VATN_COMPONENTS     — "all" | comma-list of: core,webadmin,plugins,examples
 #                          default: all components enabled
 #    VATN_PLUGINS        — comma-list / "all" / "recommended"  (default: recommended)
@@ -20,7 +19,7 @@ set -euo pipefail
 # ── GitHub coordinates ────────────────────────────────────────────────────────
 VATN_ORG="RainerXE"
 VATN_REPO="vatn"
-MIN_JAVA_MAJOR=21
+MIN_JAVA_MAJOR=25
 
 # ── terminal output ───────────────────────────────────────────────────────────
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -155,6 +154,7 @@ $INSTALL_EXAMPLES && ok "Examples       ✓" || info "Examples       skipped"
 step "Java"
 
 JAVA_OK=false
+JAVA_RAW=""
 if command -v java &>/dev/null; then
   JAVA_RAW=$(java -version 2>&1 | head -1)
   JAVA_MAJOR=$(printf '%s' "$JAVA_RAW" | grep -oE '[0-9]+' | head -1)
@@ -168,93 +168,20 @@ else
   warn "No Java installation found."
 fi
 
-# ── GraalVM choice ────────────────────────────────────────────────────────────
-INSTALL_JAVA=false
-GRAALVM_VARIANT=""
-
-if [ -n "${VATN_JAVA:-}" ]; then
-  case "$VATN_JAVA" in
-    graal)   INSTALL_JAVA=true; GRAALVM_VARIANT="graal"   ;;
-    graalce) INSTALL_JAVA=true; GRAALVM_VARIANT="graalce" ;;
-    skip)    info "Skipping Java installation (VATN_JAVA=skip)." ;;
-    *) warn "Unknown VATN_JAVA value '$VATN_JAVA' — skipping Java install." ;;
-  esac
-else
-  if ! $JAVA_OK; then
-    printf "\n"
-    info "VATN recommends GraalVM for AOT compilation and peak performance."
-    printf "\n"
-    printf "  ${BLD}Install Java:${RST}\n"
-    printf "   1) ${GRN}Oracle GraalVM${RST}   — GraalVM + JVMCI, free for development\n"
-    printf "   2) ${CYN}GraalVM CE${RST}       — community edition, Apache 2.0\n"
-    printf "   3) ${DIM}Skip${RST}             — configure Java manually\n\n"
-    ask "Choose [1/2/3, default 1]:"
-    case "${REPLY:-1}" in
-      1) INSTALL_JAVA=true; GRAALVM_VARIANT="graal"   ;;
-      2) INSTALL_JAVA=true; GRAALVM_VARIANT="graalce" ;;
-      *) warn "Skipping Java. Ensure Java $MIN_JAVA_MAJOR+ is on your PATH." ;;
-    esac
-  else
-    printf "\n"
-    printf "  ${BLD}Upgrade to GraalVM?${RST} (enables native AOT compilation)\n"
-    printf "   1) ${GRN}Oracle GraalVM${RST}   (recommended)\n"
-    printf "   2) ${CYN}GraalVM CE${RST}       (Apache 2.0)\n"
-    printf "   3) ${DIM}Keep current Java${RST}\n\n"
-    ask "Choose [1/2/3, default 3]:"
-    case "${REPLY:-3}" in
-      1) INSTALL_JAVA=true; GRAALVM_VARIANT="graal"   ;;
-      2) INSTALL_JAVA=true; GRAALVM_VARIANT="graalce" ;;
-      *) info "Keeping existing Java." ;;
-    esac
-  fi
+if ! $JAVA_OK; then
+  printf "\n"
+  info "VATN requires Java $MIN_JAVA_MAJOR+ (GraalVM 25 recommended)."
+  printf "\n"
+  printf "  Install it with SDKMAN:\n"
+  printf "    ${BLD}sdk install java 25.0.2-graal${RST}\n"
+  printf "    ${BLD}sdk default java 25.0.2-graal${RST}\n"
+  printf "\n"
+  printf "  Get SDKMAN: ${CYN}https://sdkman.io${RST}\n"
+  printf "\n"
+  die "Install Java $MIN_JAVA_MAJOR+ and re-run this installer."
 fi
 
-# ── SDKMAN + GraalVM ──────────────────────────────────────────────────────────
-if $INSTALL_JAVA; then
-  step "Installing GraalVM via SDKMAN"
-
-  SDKMAN_INIT="$HOME/.sdkman/bin/sdkman-init.sh"
-  if [ ! -f "$SDKMAN_INIT" ]; then
-    info "Installing SDKMAN..."
-    curl -fsSL "https://get.sdkman.io" | bash
-    ok "SDKMAN installed"
-  else
-    info "SDKMAN already present"
-  fi
-
-  # shellcheck source=/dev/null
-  source "$SDKMAN_INIT"
-
-  info "Finding latest GraalVM version ($GRAALVM_VARIANT)..."
-  GRAAL_VER=$(sdk list java 2>/dev/null \
-    | grep -E "^\s+\|.*[[:space:]]${GRAALVM_VARIANT}[[:space:]]" \
-    | grep -v "local only" \
-    | awk '{print $NF}' \
-    | grep -E "^[0-9]" \
-    | sort -t. -k1,1n -k2,2n -k3,3n -r \
-    | head -1)
-
-  if [ -z "$GRAAL_VER" ]; then
-    warn "Could not auto-detect version. Available options:"
-    sdk list java 2>/dev/null | grep "$GRAALVM_VARIANT" | head -10 || true
-    printf "\n"
-    ask "Enter version identifier (e.g. 25.0.1-graal):"
-    GRAAL_VER="$REPLY"
-    [ -z "$GRAAL_VER" ] && die "No version entered — aborting Java install."
-  else
-    info "Latest: $GRAAL_VER"
-  fi
-
-  sdk install java "$GRAAL_VER" </dev/null || die "GraalVM installation failed."
-  sdk default java "$GRAAL_VER"
-  export JAVA_HOME="${SDKMAN_DIR}/candidates/java/current"
-  export PATH="$JAVA_HOME/bin:$PATH"
-  ok "GraalVM $GRAAL_VER installed and set as default"
-fi
-
-command -v java &>/dev/null \
-  || die "java not found after setup. Install Java $MIN_JAVA_MAJOR+ and re-run."
-ok "Using: $(java -version 2>&1 | head -1)"
+ok "Using: $JAVA_RAW"
 
 # ── Installation directory ────────────────────────────────────────────────────
 step "Installation directory"
