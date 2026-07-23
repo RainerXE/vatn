@@ -370,26 +370,43 @@ if [ -d "$VATN_HOME/plugins" ]; then
     [ -f "$jar" ] || continue; name=$(basename "$jar" .jar); INSTALLED_PLUGINS+=("$name")
   done
 fi
-CHANGED=$( { git diff --name-only ORIG_HEAD HEAD 2>/dev/null; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
-NEEDS_BUILD=false; BUILD_MODULES=""
-if [ -z "$CHANGED" ]; then
-  info "No source changes — nothing to build."
-elif echo "$CHANGED" | grep -qE '^(vatn-api/|vatn-core/|pom\.xml$)'; then
-  NEEDS_BUILD=true; BUILD_MODULES="vatn-cli"
-  $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
-  info "vatn-api or vatn-core changed — rebuilding all modules"
-else
-  echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-cli"; NEEDS_BUILD=true; }
-  $HAS_WEBADMIN && echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"; NEEDS_BUILD=true; }
+# Fresh clone? (no ORIG_HEAD + clean working tree) → always build everything
+if ! git rev-parse ORIG_HEAD >/dev/null 2>&1 && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
+  info "Fresh clone — building all modules"
+  mvn package -T "$THREADS" -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q || die "Build failed"
   for plugin in "${INSTALLED_PLUGINS[@]}"; do
-    echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null && { BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"; NEEDS_BUILD=true; }
+    mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null || true
   done
-fi
-if $NEEDS_BUILD; then
-  BUILD_MODULES="${BUILD_MODULES#,}"
-  info "Building: $BUILD_MODULES"
-  mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
   ok "Build complete"
+else
+  CHANGED=$( { git diff --name-only ORIG_HEAD HEAD 2>/dev/null; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
+  if [ -z "$CHANGED" ]; then
+    info "No source changes — nothing to build."
+  elif echo "$CHANGED" | grep -qE '^(vatn-api/|vatn-core/|pom\.xml$)'; then
+    BUILD_MODULES="vatn-cli"
+    $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+    info "vatn-api or vatn-core changed — rebuilding all modules"
+    mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
+    for plugin in "${INSTALLED_PLUGINS[@]}"; do
+      mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null || true
+    done
+    ok "Build complete"
+  else
+    BUILD_MODULES=""
+    echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-cli"
+    $HAS_WEBADMIN && echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+    for plugin in "${INSTALLED_PLUGINS[@]}"; do
+      echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null && BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"
+    done
+    BUILD_MODULES="${BUILD_MODULES#,}"
+    if [ -n "$BUILD_MODULES" ]; then
+      info "Building: $BUILD_MODULES"
+      mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
+      ok "Build complete"
+    else
+      info "Only non-source files changed — nothing to build."
+    fi
+  fi
 fi
 step "Install"
 mkdir -p "$VATN_HOME"/{lib,plugins,bin}
