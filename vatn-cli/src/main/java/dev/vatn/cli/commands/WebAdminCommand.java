@@ -136,16 +136,41 @@ public class WebAdminCommand {
     public static class Stop implements Callable<Integer> {
         @Override
         public Integer call() throws Exception {
-            if (isMac()) {
-                System.out.println("Stopping Web Admin …");
-                return runInteractive("launchctl", "stop", "dev.vatn.webadmin");
-            } else if (isLinux()) {
+            System.out.println("Stopping Web Admin …");
+            if (isMac()) runInteractive("launchctl", "stop", "dev.vatn.webadmin");
+            else if (isLinux()) {
                 String scope = isRoot() ? "" : "--user";
-                System.out.println("Stopping Web Admin …");
-                return runInteractive("systemctl", scope, "stop", serviceName());
+                runInteractive("systemctl", scope, "stop", serviceName());
             }
-            System.err.println("Unsupported platform.");
-            return 1;
+            // Also kill any process on common ports directly
+            for (int p : new int[]{9108, 8080}) {
+                killProcessOnPort(p);
+            }
+            return 0;
+        }
+    }
+
+    private static void killProcessOnPort(int port) {
+        String pid = "";
+        if (isMac()) pid = runQuiet("lsof", "-ti", ":" + port);
+        else if (isLinux()) {
+            pid = runQuiet("fuser", port + "/tcp");
+            if (pid.isBlank()) {
+                String ss = runQuiet("ss", "-tlnp", "sport = :" + port);
+                // ss output: ... users:(("java",pid=12345,...))
+                int idx = ss.indexOf("pid=");
+                if (idx >= 0) {
+                    int end = ss.indexOf(",", idx);
+                    if (end < 0) end = ss.indexOf(")", idx);
+                    if (end < 0) end = ss.length();
+                    pid = ss.substring(idx + 4, end).trim();
+                }
+            }
+        }
+        if (!pid.isBlank()) {
+            for (String p : pid.split("\\s+")) {
+                if (!p.isBlank()) runQuiet("kill", p.trim());
+            }
         }
     }
 
