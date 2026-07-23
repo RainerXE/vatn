@@ -65,7 +65,15 @@ final class AdminHtml {
            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"/>
     <button @click="
       const t = document.getElementById('token-input').value.trim();
-      if (t) { sessionStorage.setItem('vatn_admin_token', t); authed = true; }
+      if (t) {
+        sessionStorage.setItem('vatn_admin_token', t);
+        authed = true;
+        setTimeout(function() {
+          document.querySelectorAll('[hx-get]').forEach(function(el) {
+            htmx.trigger(el, 'load');
+          });
+        }, 100);
+      }
     " class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 font-medium transition">
       Sign in
     </button>

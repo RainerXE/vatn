@@ -11,6 +11,7 @@ import dev.vatn.cli.commands.InventoryCommand;
 import dev.vatn.cli.commands.SelfUpdateCommand;
 import dev.vatn.cli.commands.WebAdminCommand;
 import dev.vatn.cli.commands.DevUpdateCommand;
+import dev.vatn.cli.commands.StatusCommand;
 import dev.vatn.api.cli.VCliCommand;
 import dev.vatn.core.cli.CliCommandLoader;
 import picocli.CommandLine;
@@ -35,6 +36,7 @@ import java.util.concurrent.Callable;
               SelfUpdateCommand.class,
               WebAdminCommand.class,
               DevUpdateCommand.class,
+              StatusCommand.class,
               OipcBenchmarkCommand.class
           })
 public class VatnCLI implements Callable<Integer> {
