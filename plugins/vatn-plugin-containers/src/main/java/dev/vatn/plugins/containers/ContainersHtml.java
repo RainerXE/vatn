@@ -370,12 +370,6 @@ public final class ContainersHtml {
       <span class="logo-text">VATN Containers</span>
     </div>
     
-    <div style="margin-bottom: 8px;">
-      <a href="/vatn/admin" style="color: var(--text-muted); text-decoration: none; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-        &#8592; Back to Admin
-      </a>
-    </div>
-    
     <ul class="nav-list">
       <li class="nav-item" :class="{ 'active': currentTab === 'overview' }" @click="currentTab = 'overview'">
         <span>&#8862;</span> Overview
@@ -407,6 +401,13 @@ public final class ContainersHtml {
   <!-- Main Content Area -->
   <main class="main-content">
     
+    <!-- Top nav bar for switching between admin pages -->
+    <nav style="display: flex; align-items: center; gap: 16px; padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+      <span style="color: #60a5fa; font-weight: 600; font-size: 13px;">&#x2B21; VATN</span>
+      <a href="/vatn/admin" style="color: #9ca3af; text-decoration: none; font-size: 12px;">Dashboard</a>
+      <span style="color: #f3f4f6; font-size: 12px; font-weight: 500;">Containers</span>
+    </nav>
+
     <div class="header-bar">
       <div class="title-group">
         <h1 x-text="currentTab.charAt(0).toUpperCase() + currentTab.slice(1)">Overview</h1>
