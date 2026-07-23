@@ -71,11 +71,16 @@ final class AdminHtml {
       const p = document.getElementById('login-pass').value.trim();
       if (!u || !p) return;
       loading = true; error = '';
-      fetch('__BASE__/../auth/login', {
+      console.log('[vatn] Logging in as', u);
+      fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: u, password: p })
-      }).then(r => r.json()).then(data => {
+      }).then(function(r) {
+        console.log('[vatn] /auth/login status:', r.status);
+        return r.json();
+      }).then(function(data) {
+        console.log('[vatn] /auth/login response:', data);
         if (data.accessToken) {
           sessionStorage.setItem('vatn_admin_token', data.accessToken);
           authed = true;
@@ -85,14 +90,16 @@ final class AdminHtml {
             });
           }, 100);
         } else {
-          error = 'Login failed';
+          error = 'Login failed: ' + (data.error || 'no accessToken');
           loading = false;
         }
-      }).catch(function() {
+      }).catch(function(err) {
+        console.log('[vatn] /auth/login error:', err);
         // Fallback: try VATN_ADMIN_TOKEN directly (standalone mode, no AuthPlugin)
-        fetch('__BASE__/api/overview', {
+        fetch('/vatn/admin/api/overview', {
           headers: { 'Authorization': 'Bearer ' + p }
-        }).then(r => {
+        }).then(function(r) {
+          console.log('[vatn] fallback status:', r.status);
           if (r.ok) {
             sessionStorage.setItem('vatn_admin_token', p);
             authed = true;
@@ -102,7 +109,7 @@ final class AdminHtml {
               });
             }, 100);
           } else {
-            error = 'Login failed';
+            error = 'Login failed (status ' + r.status + ')';
             loading = false;
           }
         });
