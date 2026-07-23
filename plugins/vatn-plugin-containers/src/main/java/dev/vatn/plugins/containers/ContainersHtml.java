@@ -14,7 +14,7 @@ public final class ContainersHtml {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VATN ZimaOS Dashboard</title>
+  <title>VATN Containers</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -367,7 +367,13 @@ public final class ContainersHtml {
   <aside class="sidebar">
     <div class="logo-container">
       <span class="logo-icon">&#x2B21;</span>
-      <span class="logo-text">VATN ZimaOS</span>
+      <span class="logo-text">VATN Containers</span>
+    </div>
+    
+    <div style="margin-bottom: 8px;">
+      <a href="/vatn/admin" style="color: var(--text-muted); text-decoration: none; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+        &#8592; Back to Admin
+      </a>
     </div>
     
     <ul class="nav-list">

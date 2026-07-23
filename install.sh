@@ -313,6 +313,77 @@ LAUNCHER_EOF
   chmod +x "$LAUNCHER"
   ok "Launcher: $LAUNCHER"
 
+  # Dev-update script
+  DEV_UPDATE="$INSTALL_DIR/bin/vatn-dev-update.sh"
+  cat >"$DEV_UPDATE" <<'DEV_UPDATE_EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+: "${VATN_HOME:=${HOME}/.vatn}"
+: "${VATN_SRC_DIR:=}"
+: "${BRANCH:=main}"
+: "${ORG:=RainerXE}"
+: "${REPO:=vatn}"
+RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[0;33m'; BLU='\033[0;34m'; DIM='\033[2m'; RST='\033[0m'
+ok()  { printf "  ${GRN}✓${RST}  %s\n" "$1"; }
+info(){ printf "  ${BLU}→${RST}  %s\n" "$1"; }
+warn(){ printf "  ${YLW}⚠${RST}  %s\n" "$1"; }
+die() { printf "  ${RED}✗${RST}  %s\n" "$1"; exit 1; }
+step() { printf "\n${BLU}══ %s${RST}\n" "$1"; }
+command -v git >/dev/null 2>&1 || die "git is required"
+command -v mvn >/dev/null 2>&1 || die "Maven (mvn) is required"
+step "Source"
+SRC_DIR=""
+if [ -n "$VATN_SRC_DIR" ] && [ -f "$VATN_SRC_DIR/pom.xml" ]; then
+  SRC_DIR="$VATN_SRC_DIR"
+  info "Using VATN_SRC_DIR: $SRC_DIR"
+elif [ -f "pom.xml" ] && grep -q "vatn-parent" pom.xml 2>/dev/null; then
+  SRC_DIR="$(pwd)"
+  info "Using current directory: $SRC_DIR"
+else
+  SRC_DIR="/tmp/vatn-dev-update-$$"
+  info "Cloning ${ORG}/${REPO} (branch: ${BRANCH}) …"
+  git clone --depth 1 --branch "$BRANCH" "https://github.com/${ORG}/${REPO}.git" "$SRC_DIR" || die "git clone failed"
+fi
+cd "$SRC_DIR"
+if [ -d ".git" ]; then
+  step "Update"
+  info "Pulling latest changes …"
+  git pull --ff-only || warn "git pull failed"
+  info "At commit: $(git rev-parse --short HEAD 2>/dev/null || echo "?")"
+fi
+step "Build"
+HAS_WEBADMIN=false
+[ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ] && HAS_WEBADMIN=true
+if ! mvn package -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q; then
+  die "Build failed"
+fi
+INSTALLED_PLUGINS=()
+if [ -d "$VATN_HOME/plugins" ]; then
+  for jar in "$VATN_HOME/plugins"/vatn-plugin-*.jar; do
+    [ -f "$jar" ] || continue; name=$(basename "$jar" .jar); INSTALLED_PLUGINS+=("$name")
+  done
+fi
+for plugin in "${INSTALLED_PLUGINS[@]}"; do
+  printf "  %s … " "$plugin"
+  if mvn package -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then printf "OK\n"; else printf "failed\n"; fi
+done
+step "Install"
+mkdir -p "$VATN_HOME"/{lib,plugins,bin}
+CLI_JAR=$(find vatn-cli/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+[ -n "$CLI_JAR" ] && cp "$CLI_JAR" "$VATN_HOME/lib/vatn-cli.jar" && ok "vatn-cli.jar" || warn "vatn-cli.jar not found"
+if $HAS_WEBADMIN; then
+  WEB_JAR=$(find vatn-webadmin/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+  [ -n "$WEB_JAR" ] && cp "$WEB_JAR" "$VATN_HOME/lib/vatn-webadmin.jar" && ok "vatn-webadmin.jar"
+fi
+for plugin in "${INSTALLED_PLUGINS[@]}"; do
+  JAR=$(find "plugins/$plugin/target" -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+  [ -n "$JAR" ] && cp "$JAR" "$VATN_HOME/plugins/$plugin.jar" && ok "$plugin.jar"
+done
+printf "\n${GRN}══ Done${RST}\n"; info "Restart: vatn webadmin restart"
+DEV_UPDATE_EOF
+  chmod +x "$DEV_UPDATE"
+  ok "Dev-update script: $DEV_UPDATE"
+
   # Config
   CONF="$INSTALL_DIR/config/vatn.conf"
   if [ ! -f "$CONF" ]; then

@@ -147,6 +147,15 @@
     "allPublicFields": true
   },
   {
+    "name": "dev.vatn.cli.commands.DevUpdateCommand",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true,
+    "allPublicFields": true
+  },
+  {
     "name": "dev.vatn.cli.commands.OipcBenchmarkCommand",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,

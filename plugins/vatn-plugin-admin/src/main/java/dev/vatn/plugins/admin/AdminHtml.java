@@ -41,7 +41,8 @@ final class AdminHtml {
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="min-h-screen font-mono text-sm">
+<body class="min-h-screen font-mono text-sm"
+      x-data="{ authed: !!sessionStorage.getItem('vatn_admin_token') }">
 
 <!-- Nav bar -->
 <nav class="sticky top-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center gap-4">
@@ -54,8 +55,7 @@ final class AdminHtml {
 </nav>
 
 <!-- Auth modal (Alpine.js) -->
-<div x-data="{ authed: !!sessionStorage.getItem('vatn_admin_token') }"
-     x-show="!authed"
+<div x-show="!authed"
      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/95"
      style="display: none;">
   <div class="bg-gray-900 border border-gray-700 rounded-xl p-8 w-96 shadow-2xl">
@@ -74,8 +74,7 @@ final class AdminHtml {
 </div>
 
 <!-- Main content (HTMX sections) -->
-<main x-data="{ authed: !!sessionStorage.getItem('vatn_admin_token') }"
-      x-show="authed" style="display: none;"
+<main x-show="authed" style="display: none;"
       class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
   <!-- Row 1: Overview + Health -->

@@ -10,6 +10,7 @@ import dev.vatn.cli.commands.OipcBenchmarkCommand;
 import dev.vatn.cli.commands.InventoryCommand;
 import dev.vatn.cli.commands.SelfUpdateCommand;
 import dev.vatn.cli.commands.WebAdminCommand;
+import dev.vatn.cli.commands.DevUpdateCommand;
 import dev.vatn.api.cli.VCliCommand;
 import dev.vatn.core.cli.CliCommandLoader;
 import picocli.CommandLine;
@@ -31,10 +32,11 @@ import java.util.concurrent.Callable;
              InfoCommand.class,
              InventoryCommand.class,
              TestCommand.class,
-             SelfUpdateCommand.class,
-             WebAdminCommand.class,
-             OipcBenchmarkCommand.class
-         })
+              SelfUpdateCommand.class,
+              WebAdminCommand.class,
+              DevUpdateCommand.class,
+              OipcBenchmarkCommand.class
+          })
 public class VatnCLI implements Callable<Integer> {
 
     @Option(names = {"-v", "--verbose"}, description = "Enable verbose logging.")
