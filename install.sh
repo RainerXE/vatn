@@ -547,8 +547,11 @@ if $INSTALL_EXAMPLES; then
     done
     [ -z "$DEFAULT_DEV" ] && DEFAULT_DEV="$HOME/Development"
 
-    ask "Clone examples to [$DEFAULT_DEV]:"
-    DEV_DIR="${REPLY:-$DEFAULT_DEV}"
+    ask "Clone examples to (accept default with Enter) [$DEFAULT_DEV]:"
+    DEV_DIR="$DEFAULT_DEV"
+    if [ -n "${REPLY:-}" ] && [ "$REPLY" != "y" ]; then
+      DEV_DIR="$REPLY"
+    fi
     DEV_DIR="${DEV_DIR/#\~/$HOME}"
     mkdir -p "$DEV_DIR"
 
@@ -594,8 +597,11 @@ if $INSTALL_CORE; then
       done
       [ -z "$DEFAULT_DEV" ] && DEFAULT_DEV="$HOME/Development"
 
-      ask "Development directory [$DEFAULT_DEV]:"
-      DEV_DIR="${REPLY:-$DEFAULT_DEV}"
+      ask "Development directory (accept default with Enter) [$DEFAULT_DEV]:"
+      DEV_DIR="$DEFAULT_DEV"
+      if [ -n "${REPLY:-}" ] && [ "$REPLY" != "y" ]; then
+        DEV_DIR="$REPLY"
+      fi
       DEV_DIR="${DEV_DIR/#\~/$HOME}"
       mkdir -p "$DEV_DIR"
 
