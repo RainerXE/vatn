@@ -75,6 +75,66 @@ yn() {
   [[ "${REPLY,,}" =~ ^y ]] && REPLY="y" || REPLY="n"
 }
 
+# ── Build from source (fallback for missing release assets) ──────────────────
+# Usage: build_artifact "Description" <mvn-module> <target-path> [native-binary-name]
+build_artifact() {
+  local desc="$1" module="$2" target="$3" native_name="${4:-}"
+  local src_dir
+
+  if ! command -v mvn &>/dev/null; then
+    warn "Maven not found — cannot build $desc from source."
+    return 1
+  fi
+
+  # Detect or clone source
+  src_dir=""
+  if [ -f "pom.xml" ] && grep "vatn-parent" pom.xml &>/dev/null; then
+    src_dir="$(pwd)"
+  elif [ -n "${VATN_SRC_DIR:-}" ] && [ -f "$VATN_SRC_DIR/pom.xml" ]; then
+    src_dir="$VATN_SRC_DIR"
+  elif command -v git &>/dev/null && ( [ -t 0 ] || [ -e /dev/tty ] ); then
+    ask "Clone vatn source to build $desc? [Y/n]:"
+    REPLY="${REPLY:-y}"
+    if [[ "${REPLY,,}" =~ ^n ]]; then
+      warn "Skipping $desc."
+      return 1
+    fi
+    src_dir="/tmp/vatn-build-$$"
+    info "Cloning vatn (shallow)…"
+    git clone --depth 1 "https://github.com/${VATN_ORG}/${VATN_REPO}.git" "$src_dir" &>/dev/null || {
+      warn "Clone failed."
+      rm -rf "$src_dir" 2>/dev/null
+      return 1
+    }
+  else
+    warn "Source not found and cannot clone — cannot build $desc."
+    return 1
+  fi
+
+  info "Building $desc (mvn package -pl $module -am -DskipTests)…"
+  if ! (cd "$src_dir" && mvn package -pl "$module" -am -DskipTests -q &>/dev/null); then
+    warn "Build failed for $desc."
+    return 1
+  fi
+
+  local built=""
+  if [ -n "$native_name" ]; then
+    built=$(find "$src_dir/$module/target" -maxdepth 1 -type f -name "$native_name" 2>/dev/null | head -1)
+  else
+    built=$(find "$src_dir/$module/target" -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+  fi
+
+  if [ -n "$built" ]; then
+    cp "$built" "$target"
+    [ -x "$built" ] && chmod +x "$target"
+    ok "$desc built and installed"
+    return 0
+  else
+    warn "Build succeeded but artifact not found in target/"
+    return 1
+  fi
+}
+
 # ── banner ────────────────────────────────────────────────────────────────────
 printf "\n${BLD}${BLU}"
 printf "  ╔══════════════════════════════════════════════════════╗\n"
@@ -216,9 +276,10 @@ if $INSTALL_CORE; then
   if curl -fsSL --progress-bar -o "$INSTALL_DIR/lib/vatn-cli.jar" "$CORE_URL" 2>/dev/null; then
     ok "vatn-cli.jar downloaded"
   else
-    warn "Could not download vatn-cli.jar — no release available yet."
-    warn "Build from source: mvn clean install -DskipTests in the vatn/ directory"
-    echo "# placeholder" >"$INSTALL_DIR/lib/vatn-cli.jar.placeholder"
+    warn "vatn-cli.jar not on release yet."
+    build_artifact "VATN CLI" "vatn-cli" "$INSTALL_DIR/lib/vatn-cli.jar" || {
+      echo "# placeholder" >"$INSTALL_DIR/lib/vatn-cli.jar.placeholder"
+    }
   fi
 
   # Launcher
@@ -294,9 +355,8 @@ WEBADMIN_EOF
     chmod +x "$WEBADMIN_BIN"
     ok "vatn-webadmin jar installed (JVM mode)"
   else
-    warn "vatn-webadmin binary not yet released — it will be available in the next release."
-    warn "Build locally:  mvn clean package -pl vatn-webadmin --also-make -DskipTests"
-    warn "Then copy:      cp vatn-webadmin/target/vatn-webadmin.jar $INSTALL_DIR/lib/"
+    warn "vatn-webadmin not on release yet."
+    build_artifact "vatn-webadmin (JAR)" "vatn-webadmin" "$INSTALL_DIR/lib/vatn-webadmin.jar" || true
   fi
 
   # Register as background daemon
@@ -458,11 +518,20 @@ if $INSTALL_PLUGINS; then
     if curl -fsSL --progress-bar -o "$INSTALL_DIR/plugins/$jar" "$url" 2>/dev/null; then
       ok "$jar"
     else
-      warn "Not yet released: $jar"
+      warn "Not on release: $jar"
       rm -f "$INSTALL_DIR/plugins/$jar"
       FAILED+=("$plugin")
     fi
   done
+  if [ ${#FAILED[@]} -gt 0 ]; then
+    printf "\n"
+    yn "Build missing plugins from source?" "y"
+    if [ "$REPLY" = "y" ]; then
+      for plugin in "${FAILED[@]}"; do
+        build_artifact "vatn-plugin-$plugin" "plugins/vatn-plugin-$plugin" "$INSTALL_DIR/plugins/vatn-plugin-$plugin.jar" || true
+      done
+    fi
+  fi
 fi
 
 # ── [4] Examples ──────────────────────────────────────────────────────────────
