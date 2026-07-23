@@ -162,22 +162,8 @@ public class WebAdminCommand {
 
         @Override
         public Integer call() throws Exception {
-            if (dev || port != null) {
-                // Stop then start with custom args
-                new Stop().call();
-                return new Start() {{ this.dev = dev; this.port = port; }}.call();
-            }
-            if (isMac()) {
-                System.out.println("Restarting Web Admin …");
-                runInteractive("launchctl", "stop", "dev.vatn.webadmin");
-                return runInteractive("launchctl", "start", "dev.vatn.webadmin");
-            } else if (isLinux()) {
-                String scope = isRoot() ? "" : "--user";
-                System.out.println("Restarting Web Admin …");
-                return runInteractive("systemctl", scope, "restart", serviceName());
-            }
-            System.err.println("Unsupported platform.");
-            return 1;
+            new Stop().call();
+            return new Start() {{ this.dev = dev; this.port = port; }}.call();
         }
     }
 
