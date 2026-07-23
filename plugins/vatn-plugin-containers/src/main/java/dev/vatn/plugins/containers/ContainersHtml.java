@@ -20,10 +20,10 @@ public final class ContainersHtml {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   
   <!-- CDNs for HTMX, Alpine, and xterm -->
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-  <link rel="stylesheet" href="https://unpkg.com/xterm@5.3.0/css/xterm.css" />
-  <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.10/dist/htmx.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 
   <style>
     :root {
@@ -1009,8 +1009,11 @@ public final class ContainersHtml {
 
     window.openTerminal = function(engine, containerId, containerName) {
       Alpine.store('currentTab', 'containers');
-      document.querySelector('body').__x__.$data.termOpen = true;
-      document.querySelector('body').__x__.$data.termTitle = 'Terminal: ' + containerName + ' (' + engine + ')';
+      let alpine = document.querySelector('body').__x__;
+      if (alpine) {
+        alpine.$data.termOpen = true;
+        alpine.$data.termTitle = 'Terminal: ' + containerName + ' (' + engine + ')';
+      }
 
       const container = document.getElementById('xterm-hook');
       container.innerHTML = '';
