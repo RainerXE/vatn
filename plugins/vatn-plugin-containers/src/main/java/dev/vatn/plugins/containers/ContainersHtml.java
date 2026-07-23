@@ -383,6 +383,14 @@ public final class ContainersHtml {
       <li class="nav-item" :class="{ 'active': currentTab === 'templates' }" @click="currentTab = 'templates'; showTemplateForm = false; editingTemplate = null; createResult = null">
         <span>&#9733;</span> Templates
       </li>
+      <li class="nav-item" :class="{ 'active': currentTab === 'profiles' }"
+          @click="currentTab = 'profiles'; showProfileForm = false; editingProfile = null">
+        <span>&#9881;</span> Resource Profiles
+      </li>
+      <li class="nav-item" :class="{ 'active': currentTab === 'stacks' }"
+          @click="currentTab = 'stacks'; showStackForm = false; editingStack = null; deployResult = null">
+        <span>&#9776;</span> Stacks
+      </li>
     </ul>
     
     <div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--card-border); padding-top: 16px;">
@@ -538,6 +546,15 @@ public final class ContainersHtml {
               <label>Environment Variables (one per line, e.g. ENV=prod)</label>
               <textarea x-model="editingTemplate ? Object.entries(editingTemplate.env).map(([k,v]) => k+'='+v).join('\n') : templateEnv" placeholder="ENV=prod"></textarea>
             </div>
+            <div>
+              <label>Resource Profile</label>
+              <select x-model="editingTemplate ? editingTemplate.resourceProfileId : templateProfileId">
+                <option value="">None</option>
+                <template x-for="p in profiles" :key="p.id">
+                  <option :value="p.id" x-text="p.name"></option>
+                </template>
+              </select>
+            </div>
             <div class="full">
               <label>Post-Start Commands (one per line)</label>
               <textarea x-model="editingTemplate ? (editingTemplate.postStartCommands || []).join('\n') : templatePostStart" placeholder="touch /tmp/ready&#10;echo 'started'"></textarea>
@@ -587,6 +604,152 @@ public final class ContainersHtml {
       </div>
     </div>
 
+    <!-- TAB: Resource Profiles -->
+    <div class="tab-content" :class="{ 'active': currentTab === 'profiles' }">
+      <div class="dashboard-grid">
+
+        <!-- Profile Form -->
+        <div class="glass-card col-12" x-show="showProfileForm" x-cloak>
+          <div class="card-title">
+            <span x-text="editingProfile ? 'Edit Profile' : 'New Profile'">Profile Editor</span>
+            <div class="template-actions">
+              <button class="btn" @click="saveProfile()">Save</button>
+              <button class="btn" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted);"
+                      @click="showProfileForm = false; editingProfile = null">Cancel</button>
+            </div>
+          </div>
+          <div class="template-form">
+            <div>
+              <label>Name</label>
+              <input type="text" x-model="profileName" placeholder="high-performance"/>
+            </div>
+            <div>
+              <label>GPU Mode</label>
+              <select x-model="profileGpuMode">
+                <option value="none">None</option>
+                <option value="all">All GPUs</option>
+                <option value="count:1">1 GPU</option>
+                <option value="count:2">2 GPUs</option>
+              </select>
+            </div>
+            <div>
+              <label>CPU Max</label>
+              <input type="text" x-model="profileCpuMax" placeholder="2.0"/>
+            </div>
+            <div>
+              <label>Memory Max</label>
+              <input type="text" x-model="profileMemoryMax" placeholder="512m"/>
+            </div>
+            <div class="full">
+              <label>
+                Device Mounts (one per line, e.g. /dev/sda:/dev/sda:rwm)
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">
+                  <a href="#" @click.prevent="showProfileCli = !showProfileCli"
+                     x-text="showProfileCli ? 'Show structured form' : 'Edit raw CLI flags'"
+                     style="color:var(--accent);cursor:pointer;text-decoration:none;"></a>
+                </span>
+              </label>
+              <div x-show="!showProfileCli">
+                <textarea x-model="profileDevices" placeholder="/dev/sda:/dev/sda:rwm" rows="2"></textarea>
+              </div>
+              <div x-show="showProfileCli">
+                <textarea x-model="profileExtraCli" placeholder="--cpus 2 --memory 512m --device /dev/sda:/dev/sda:rwm --gpus all" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile List -->
+        <div class="glass-card col-12">
+          <div class="card-title">
+            <span>Resource Profiles</span>
+            <button class="btn" @click="showProfileForm = true; editingProfile = null">+ New Profile</button>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>CPU</th><th>Memory</th><th>Devices</th><th>GPU</th><th>Actions</th></tr>
+            </thead>
+            <tbody hx-get="__BASE__/api/profiles" hx-trigger="load, every 10s">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Stacks -->
+    <div class="tab-content" :class="{ 'active': currentTab === 'stacks' }">
+      <div class="dashboard-grid">
+
+        <!-- Stack Form -->
+        <div class="glass-card col-12" x-show="showStackForm" x-cloak>
+          <div class="card-title">
+            <span x-text="editingStack ? 'Edit Stack' : 'New Stack'">Stack Editor</span>
+            <div class="template-actions">
+              <button class="btn" @click="saveStack()">Save</button>
+              <button class="btn" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted);"
+                      @click="showStackForm = false; editingStack = null">Cancel</button>
+            </div>
+          </div>
+          <div class="template-form">
+            <div>
+              <label>Name</label>
+              <input type="text" x-model="stackName" placeholder="my-app-stack"/>
+            </div>
+            <div>
+              <label>Description</label>
+              <input type="text" x-model="stackDescription" placeholder="My application stack"/>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+            Services are managed via the template system. Create templates first, then add services to this stack.
+          </div>
+        </div>
+
+        <!-- Deploy Result -->
+        <div class="glass-card col-12" x-show="deployResult" x-cloak>
+          <div class="card-title">Deployment Result</div>
+          <div class="result-box" :class="{ 'error': deployResult?.overallStatus === 'FAILED' || deployResult?.overallStatus === 'DEGRADED' }">
+            <div><strong>Status:</strong> <span x-text="deployResult?.overallStatus" style="font-weight: 600;"></span></div>
+            <template x-if="deployResult?.results">
+              <div style="margin-top: 8px;">
+                <table>
+                  <thead><tr><th>Service</th><th>Status</th><th>Container</th><th>Error</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in deployResult.results" :key="r.serviceName">
+                      <tr>
+                        <td x-text="r.serviceName" style="font-weight: 500;"></td>
+                        <td><span class="status-pill" :class="r.status === 'RUNNING' ? 'status-running' : 'status-stopped'" x-text="r.status"></span></td>
+                        <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);" x-text="r.containerId || '-'"></td>
+                        <td style="font-size: 12px; color: var(--red);" x-text="r.error || ''"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+            <button class="btn" style="margin-top: 12px;" @click="deployResult = null">Dismiss</button>
+          </div>
+        </div>
+
+        <!-- Stack List -->
+        <div class="glass-card col-12">
+          <div class="card-title">
+            <span>Application Stacks</span>
+            <button class="btn" @click="showStackForm = true; editingStack = null; deployResult = null">+ New Stack</button>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Description</th><th>Services</th><th>Actions</th></tr>
+            </thead>
+            <tbody hx-get="__BASE__/api/stacks" hx-trigger="load, every 10s">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Interactive Terminal overlay (Dynamic xterm.js integration) -->
@@ -619,6 +782,24 @@ public final class ContainersHtml {
         templatePorts: '',
         templateEnv: '',
         templatePostStart: '',
+        showProfileForm: false,
+        editingProfile: null,
+        profileName: '',
+        profileCpuMin: '',
+        profileCpuMax: '',
+        profileMemoryMin: '',
+        profileMemoryMax: '',
+        profileDevices: '',
+        profileGpuMode: 'none',
+        profileExtraCli: '',
+        showProfileCli: false,
+        templateProfileId: '',
+        profiles: [],
+        showStackForm: false,
+        editingStack: null,
+        deployResult: null,
+        stackName: '',
+        stackDescription: '',
 
         editTemplate(t) {
           this.editingTemplate = t;
@@ -640,6 +821,7 @@ public final class ContainersHtml {
             engine: this.editingTemplate ? t.engine : this.templateEngine,
             image: this.editingTemplate ? t.image : this.templateImage,
             containerName: this.editingTemplate ? t.containerName : this.templateContainerName,
+            resourceProfileId: t.resourceProfileId || this.templateProfileId || null,
             ports,
             env,
             postStartCommands: postStart,
@@ -682,6 +864,98 @@ public final class ContainersHtml {
             this.createResult = result;
           } catch(e) {
             this.createResult = { error: e.message };
+          }
+        },
+
+        init() {
+          fetch('__BASE__/api/profiles').then(r => r.json()).then(d => this.profiles = d).catch(() => {});
+        },
+
+        editProfile(p) {
+          this.editingProfile = p;
+          this.showProfileForm = true;
+          this.profileName = p.name;
+          this.profileCpuMin = p.cpuMin || '';
+          this.profileCpuMax = p.cpuMax || '';
+          this.profileMemoryMin = p.memoryMin || '';
+          this.profileMemoryMax = p.memoryMax || '';
+          this.profileDevices = (p.deviceMounts || []).join('\n');
+          this.profileGpuMode = p.gpuMode || 'none';
+          this.profileExtraCli = p.extraCliArgs || '';
+        },
+
+        async saveProfile() {
+          const body = {
+            id: this.editingProfile?.id || null,
+            name: this.profileName,
+            description: '',
+            cpuMin: this.profileCpuMin || null,
+            cpuMax: this.profileCpuMax || null,
+            memoryMin: this.profileMemoryMin || null,
+            memoryMax: this.profileMemoryMax || null,
+            deviceMounts: this.profileDevices ? this.profileDevices.split('\n').filter(Boolean) : [],
+            gpuMode: this.profileGpuMode,
+            extraCliArgs: this.profileExtraCli || null,
+            createdAt: this.editingProfile?.createdAt || 0
+          };
+          const resp = await fetch('__BASE__/api/profiles', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+          });
+          if (!resp.ok) throw new Error('Save failed');
+          this.showProfileForm = false;
+          this.editingProfile = null;
+          htmx.trigger('body', 'htmx:load');
+        },
+
+        deleteProfile(id) {
+          if (!confirm('Delete this profile?')) return;
+          fetch('__BASE__/api/profiles/' + id, { method: 'DELETE' })
+            .then(() => htmx.trigger('body', 'htmx:load'));
+        },
+
+        editStack(s) {
+          this.editingStack = s;
+          this.showStackForm = true;
+          this.stackName = s.name;
+          this.stackDescription = s.description || '';
+          this.deployResult = null;
+        },
+
+        async saveStack() {
+          const body = {
+            id: this.editingStack?.id || null,
+            name: this.stackName,
+            description: this.stackDescription,
+            services: this.editingStack?.services || [],
+            createdAt: this.editingStack?.createdAt || 0
+          };
+          const resp = await fetch('__BASE__/api/stacks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+          });
+          if (!resp.ok) throw new Error('Save failed');
+          this.showStackForm = false;
+          this.editingStack = null;
+          htmx.trigger('body', 'htmx:load');
+        },
+
+        deleteStack(id) {
+          if (!confirm('Delete this stack?')) return;
+          fetch('__BASE__/api/stacks/' + id, { method: 'DELETE' })
+            .then(() => htmx.trigger('body', 'htmx:load'));
+        },
+
+        async deployStack(id) {
+          try {
+            const resp = await fetch('__BASE__/api/stacks/' + id + '/deploy', {
+              method: 'POST'
+            });
+            this.deployResult = await resp.json();
+          } catch(e) {
+            this.deployResult = { overallStatus: 'FAILED', error: e.message };
           }
         }
       };

@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -339,7 +340,7 @@ class ContainersPluginTest {
 
     @Test
     void containerTemplateDefaults() {
-        var t = new ContainerTemplate(null, "test", "", null, "nginx:latest", null, null, null, null, null, null, null, null, null, null, null, 0, 0);
+        var t = new ContainerTemplate(null, "test", "", null, "nginx:latest", null, null, null, null, null, null, null, null, null, null, null, null, 0, 0);
         assertNotNull(t.id());
         assertEquals("test", t.name());
         assertTrue(t.ports().isEmpty());
@@ -358,7 +359,7 @@ class ContainersPluginTest {
             var store = new JsonTemplateStore(dir);
             var t = new ContainerTemplate(null, "my-web", "Web server template",
                 "PODMAN", "nginx:latest", "web1", null, null, List.of("8080:80"),
-                null, Map.of("ENV", "prod"), null, null, null, null, null, 0, 0);
+                null, Map.of("ENV", "prod"), null, null, null, null, null, null, 0, 0);
             var saved = store.save(t);
             assertNotNull(saved.id());
             assertEquals("my-web", saved.name());
@@ -378,8 +379,8 @@ class ContainersPluginTest {
         var dir = Files.createTempDirectory("vatn-templates-");
         try {
             var store = new JsonTemplateStore(dir);
-            var t1 = store.save(new ContainerTemplate(null, "alpha", "", null, "img1", null, null, null, null, null, null, null, null, null, null, null, 0, 0));
-            var t2 = store.save(new ContainerTemplate(null, "beta", "", null, "img2", null, null, null, null, null, null, null, null, null, null, null, 0, 0));
+            var t1 = store.save(new ContainerTemplate(null, "alpha", "", null, "img1", null, null, null, null, null, null, null, null, null, null, null, null, 0, 0));
+            var t2 = store.save(new ContainerTemplate(null, "beta", "", null, "img2", null, null, null, null, null, null, null, null, null, null, null, null, 0, 0));
 
             assertEquals(2, store.list().size());
             assertEquals("alpha", store.list().get(0).name());
@@ -398,7 +399,7 @@ class ContainersPluginTest {
         var dir = Files.createTempDirectory("vatn-templates-");
         try {
             var store1 = new JsonTemplateStore(dir);
-            var saved = store1.save(new ContainerTemplate(null, "persist-test", "", null, "redis:7", null, null, null, null, null, null, null, null, null, null, null, 0, 0));
+            var saved = store1.save(new ContainerTemplate(null, "persist-test", "", null, "redis:7", null, null, null, null, null, null, null, null, null, null, null, null, 0, 0));
 
             var store2 = new JsonTemplateStore(dir);
             var loaded = store2.get(saved.id());
@@ -414,8 +415,8 @@ class ContainersPluginTest {
     @Test
     void containerCreatorRejectsMissingImage() {
         var ps = new MockProcessService();
-        var creator = new ContainerCreator(ps, List.of());
-        var result = creator.createFromTemplate(new ContainerTemplate(null, "bad", "", null, "", null, null, null, null, null, null, null, null, null, null, null, 0, 0));
+        var creator = new ContainerCreator(ps, List.of(), null);
+        var result = creator.createFromTemplate(new ContainerTemplate(null, "bad", "", null, "", null, null, null, null, null, null, null, null, null, null, null, null, 0, 0));
         assertNull(result.containerId());
         assertNotNull(result.error());
     }
@@ -427,12 +428,12 @@ class ContainersPluginTest {
                 .withExec(List.of("podman", "create", "--name", "web1", "-p", "8080:80", "-e", "ENV=prod", "nginx:latest"),
                         new VProcessService.VProcessResult(0, "abc123container\n", ""));
         var mgr = new GenericContainerManager(VContainerEngine.PODMAN, "podman", ps, new VJsonImpl());
-        var creator = new ContainerCreator(ps, List.of(mgr));
+        var creator = new ContainerCreator(ps, List.of(mgr), null);
         var result = creator.createFromTemplate(new ContainerTemplate(
                 null, "web", "", "PODMAN",
                 "nginx:latest", "web1", null, null,
                 List.of("8080:80"), null, Map.of("ENV", "prod"),
-                null, null, null, null, null, 0, 0));
+                null, null, null, null, null, null, 0, 0));
         assertEquals("abc123container", result.containerId());
         assertNull(result.error());
     }
@@ -445,15 +446,289 @@ class ContainersPluginTest {
                 .withExec(List.of("podman", "exec", "container-id", "sh", "-c", "echo hello"),
                         new VProcessService.VProcessResult(0, "hello\n", ""));
         var mgr = new GenericContainerManager(VContainerEngine.PODMAN, "podman", ps, new VJsonImpl());
-        var creator = new ContainerCreator(ps, List.of(mgr));
+        var creator = new ContainerCreator(ps, List.of(mgr), null);
         var result = creator.createFromTemplate(new ContainerTemplate(
                 null, "web", "", "PODMAN",
                 "nginx:latest", "web1", null, null,
-                null, null, Map.of(), null, null, null, null,
+                null, null, Map.of(), null, null, null, null, null,
                 List.of("echo hello"), 0, 0));
         assertNotNull(result.containerId());
         assertEquals(1, result.postStartResults().size());
         assertEquals(0, result.postStartResults().get(0).exitCode());
+    }
+
+    // ---- Resource Profile Tests ----
+
+    @Test
+    void resourceProfileDefaults() {
+        var p = new ResourceProfile(null, "test", "", null, null, null, null, null, null, null, 0);
+        assertNotNull(p.id());
+        assertEquals("test", p.name());
+        assertTrue(p.deviceMounts().isEmpty());
+        assertEquals("none", p.gpuMode());
+        assertEquals("", p.extraCliArgs());
+    }
+
+    @Test
+    void profileStoreSaveAndGet() throws Exception {
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var store = new JsonResourceProfileStore(dir);
+            var p = new ResourceProfile(null, "high-perf", "High performance",
+                null, "4.0", null, "2g",
+                List.of("/dev/sda:/dev/sda:rwm"), "all", null, 0);
+            var saved = store.save(p);
+            assertNotNull(saved.id());
+            assertEquals("high-perf", saved.name());
+
+            var loaded = store.get(saved.id());
+            assertTrue(loaded.isPresent());
+            assertEquals("4.0", loaded.get().cpuMax());
+            assertEquals("2g", loaded.get().memoryMax());
+            assertEquals(List.of("/dev/sda:/dev/sda:rwm"), loaded.get().deviceMounts());
+            assertEquals("all", loaded.get().gpuMode());
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    @Test
+    void profileStoreListAndDelete() throws Exception {
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var store = new JsonResourceProfileStore(dir);
+            var p1 = store.save(new ResourceProfile(null, "p1", "", null, null, null, null, null, null, null, 0));
+            var p2 = store.save(new ResourceProfile(null, "p2", "", null, null, null, null, null, null, null, 0));
+
+            assertEquals(2, store.list().size());
+            store.delete(p1.id());
+            assertEquals(1, store.list().size());
+            assertTrue(store.get(p1.id()).isEmpty());
+            assertTrue(store.get(p2.id()).isPresent());
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    @Test
+    void profileStorePersistenceAcrossInstances() throws Exception {
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var store1 = new JsonResourceProfileStore(dir);
+            var saved = store1.save(new ResourceProfile(null, "persist", "", null, "2.0", null, null, null, null, null, 0));
+
+            var store2 = new JsonResourceProfileStore(dir);
+            var loaded = store2.get(saved.id());
+            assertTrue(loaded.isPresent());
+            assertEquals("2.0", loaded.get().cpuMax());
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    @Test
+    void containerCreatorAppliesResourceArgs() throws Exception {
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var profileService = new JsonResourceProfileStore(dir);
+            var profile = profileService.save(new ResourceProfile(null, "perf", "",
+                null, "2.0", null, "1g",
+                List.of("/dev/sda:/dev/sda:rwm"), "all", null, 0));
+
+            var ps = new MockProcessService()
+                .withProbe("podman", new VProcessService.VProcessResult(0, "podman version 4.0", ""))
+                .withExec(args -> args.contains("podman") && args.contains("create"),
+                    new VProcessService.VProcessResult(0, "abc\n", ""));
+
+            var mgr = new GenericContainerManager(VContainerEngine.PODMAN, "podman", ps, new VJsonImpl());
+            var creator = new ContainerCreator(ps, List.of(mgr), profileService);
+
+            var template = new ContainerTemplate(
+                null, "web", "", "PODMAN", "nginx:latest",
+                null, null, null, null, null, Map.of(), Map.of(),
+                null, null, null, profile.id(), null, 0, 0);
+            var result = creator.createFromTemplate(template);
+            assertNotNull(result.containerId());
+
+            boolean hasCpus = ps.executedCommands.stream()
+                .anyMatch(cmd -> cmd.contains("--cpus") && cmd.contains("2.0"));
+            boolean hasMemory = ps.executedCommands.stream()
+                .anyMatch(cmd -> cmd.contains("--memory") && cmd.contains("1g"));
+            boolean hasDevice = ps.executedCommands.stream()
+                .anyMatch(cmd -> cmd.contains("--device") && cmd.contains("/dev/sda:/dev/sda:rwm"));
+            boolean hasGpus = ps.executedCommands.stream()
+                .anyMatch(cmd -> cmd.contains("--gpus") && cmd.contains("all"));
+            assertTrue(hasCpus, "Expected --cpus 2.0 in create command");
+            assertTrue(hasMemory, "Expected --memory 1g in create command");
+            assertTrue(hasDevice, "Expected --device flag in create command");
+            assertTrue(hasGpus, "Expected --gpus all in create command");
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    @Test
+    void containerCreatorUsesExtraCliArgs() throws Exception {
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var profileService = new JsonResourceProfileStore(dir);
+            var profile = profileService.save(new ResourceProfile(null, "raw", "",
+                null, null, null, null, null, null,
+                "--cpus 4 --memory 8g --shm-size 1g", 0));
+
+            var ps = new MockProcessService()
+                .withProbe("podman", new VProcessService.VProcessResult(0, "podman version 4.0", ""))
+                .withExec(args -> args.contains("podman") && args.contains("create"),
+                    new VProcessService.VProcessResult(0, "abc\n", ""));
+
+            var mgr = new GenericContainerManager(VContainerEngine.PODMAN, "podman", ps, new VJsonImpl());
+            var creator = new ContainerCreator(ps, List.of(mgr), profileService);
+
+            var template = new ContainerTemplate(
+                null, "web", "", "PODMAN", "nginx:latest",
+                null, null, null, null, null, Map.of(), Map.of(),
+                null, null, null, profile.id(), null, 0, 0);
+            creator.createFromTemplate(template);
+
+            boolean hasShm = ps.executedCommands.stream()
+                .anyMatch(cmd -> cmd.contains("--shm-size") && cmd.contains("1g"));
+            assertTrue(hasShm, "Expected --shm-size 1g from extraCliArgs");
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    @Test
+    void containerCreatorSkipsMissingProfile() throws Exception {
+        var ps = new MockProcessService()
+            .withProbe("podman", new VProcessService.VProcessResult(0, "podman version 4.0", ""))
+            .withExec(args -> args.contains("podman") && args.contains("create"),
+                new VProcessService.VProcessResult(0, "abc\n", ""));
+        var mgr = new GenericContainerManager(VContainerEngine.PODMAN, "podman", ps, new VJsonImpl());
+        var dir = Files.createTempDirectory("vatn-profiles-");
+        try {
+            var profileService = new JsonResourceProfileStore(dir);
+            var creator = new ContainerCreator(ps, List.of(mgr), profileService);
+            var template = new ContainerTemplate(
+                null, "web", "", "PODMAN", "nginx:latest",
+                null, null, null, null, null, Map.of(), Map.of(),
+                null, null, null, "nonexistent-id", null, 0, 0);
+            var result = creator.createFromTemplate(template);
+            assertNotNull(result.containerId());
+
+            boolean noCpus = ps.executedCommands.stream()
+                .flatMap(List::stream)
+                .noneMatch("--cpus"::equals);
+            assertTrue(noCpus, "Should not have --cpus for missing profile");
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    // ---- HealthProbe ----
+
+    @Test
+    void healthProbeDefaults() {
+        var p = new HealthProbe(null, "/health", 0, 0, 0, 0);
+        assertEquals("exec", p.type());
+        assertEquals(5000, p.intervalMs());
+        assertEquals(3000, p.timeoutMs());
+        assertEquals(3, p.retries());
+        assertEquals(5000, p.startPeriodMs());
+    }
+
+    // ---- ServiceDependency ----
+
+    @Test
+    void serviceDependencyDefaults() {
+        var d = new ServiceDependency("db", null);
+        assertEquals("db", d.service());
+        assertEquals("healthy", d.condition());
+    }
+
+    // ---- StackService ----
+
+    @Test
+    void stackServiceDefaults() {
+        var s = new StackService("api", "tmpl-1", null, null, null);
+        assertEquals("api", s.name());
+        assertTrue(s.dependsOn().isEmpty());
+        assertTrue(s.env().isEmpty());
+    }
+
+    // ---- ContainerStack ----
+
+    @Test
+    void containerStackDefaults() {
+        var stack = new ContainerStack(null, "my-app", "", null, 0);
+        assertNotNull(stack.id());
+        assertEquals("my-app", stack.name());
+        assertTrue(stack.services().isEmpty());
+    }
+
+    // ---- ContainerStackStore ----
+
+    @Test
+    void stackStoreSaveAndGet() throws Exception {
+        var dir = Files.createTempDirectory("vatn-stacks-");
+        try {
+            var store = new ContainerStackStore(dir);
+            var svc = new StackService("api", "tmpl-1", null, null, null);
+            var stack = store.save(new ContainerStack(null, "my-app", "My app", List.of(svc), 0));
+            assertNotNull(stack.id());
+            assertEquals("my-app", stack.name());
+
+            var loaded = store.get(stack.id());
+            assertTrue(loaded.isPresent());
+            assertEquals(1, loaded.get().services().size());
+            assertEquals("api", loaded.get().services().get(0).name());
+        } finally {
+            dir.toFile().deleteOnExit();
+        }
+    }
+
+    // ---- StackDeployer.topologicalSort ----
+
+    @Test
+    void topologicalSortSimpleChain() {
+        var db = new StackService("db", "tmpl-db", null, null, null);
+        var api = new StackService("api", "tmpl-api",
+            List.of(new ServiceDependency("db", "healthy")), null, null);
+        var web = new StackService("web", "tmpl-web",
+            List.of(new ServiceDependency("api", "healthy")), null, null);
+
+        var sorted = StackDeployer.topologicalSort(List.of(web, api, db));
+        assertEquals(3, sorted.size());
+        assertEquals("db", sorted.get(0).name());
+        assertEquals("api", sorted.get(1).name());
+        assertEquals("web", sorted.get(2).name());
+    }
+
+    @Test
+    void topologicalSortNoDeps() {
+        var a = new StackService("a", "t1", null, null, null);
+        var b = new StackService("b", "t2", null, null, null);
+        var sorted = StackDeployer.topologicalSort(List.of(b, a));
+        assertEquals(2, sorted.size());
+    }
+
+    @Test
+    void topologicalSortCycleDetection() {
+        var a = new StackService("a", "t1",
+            List.of(new ServiceDependency("b", "healthy")), null, null);
+        var b = new StackService("b", "t2",
+            List.of(new ServiceDependency("a", "healthy")), null, null);
+
+        assertThrows(IllegalArgumentException.class, () ->
+            StackDeployer.topologicalSort(List.of(a, b)));
+    }
+
+    @Test
+    void topologicalSortMissingDependency() {
+        var a = new StackService("a", "t1",
+            List.of(new ServiceDependency("nonexistent", "healthy")), null, null);
+        assertThrows(IllegalArgumentException.class, () ->
+            StackDeployer.topologicalSort(List.of(a)));
     }
 
     // ---- Mock Helpers ----
@@ -474,7 +749,10 @@ class ContainersPluginTest {
     private static class MockProcessService implements VProcessService {
         final Map<List<String>, VProcessService.VProcessResult> probeResults = new HashMap<>();
         final Map<List<String>, VProcessService.VProcessResult> execResults = new HashMap<>();
+        final List<PredicateResult> predicateExecResults = new ArrayList<>();
         final List<List<String>> executedCommands = Collections.synchronizedList(new ArrayList<>());
+
+        private record PredicateResult(Predicate<List<String>> predicate, VProcessService.VProcessResult result) {}
 
         MockProcessService withProbe(String binary, VProcessService.VProcessResult result) {
             probeResults.put(List.of(binary, "--version"), result);
@@ -483,6 +761,11 @@ class ContainersPluginTest {
 
         MockProcessService withExec(List<String> cmd, VProcessService.VProcessResult result) {
             execResults.put(cmd, result);
+            return this;
+        }
+
+        MockProcessService withExec(Predicate<List<String>> predicate, VProcessService.VProcessResult result) {
+            predicateExecResults.add(new PredicateResult(predicate, result));
             return this;
         }
 
@@ -496,7 +779,11 @@ class ContainersPluginTest {
         public VProcessService.VProcessResult execute(List<String> command, Map<String, String> env, String workingDir) {
             executedCommands.add(command);
             var result = execResults.get(command);
-            return result != null ? result : new VProcessService.VProcessResult(0, "", "");
+            if (result != null) return result;
+            for (var pr : predicateExecResults) {
+                if (pr.predicate().test(command)) return pr.result();
+            }
+            return new VProcessService.VProcessResult(0, "", "");
         }
 
         @Override

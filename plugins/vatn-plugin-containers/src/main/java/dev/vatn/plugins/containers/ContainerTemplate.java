@@ -19,6 +19,7 @@ public record ContainerTemplate(
     String networkMode,
     String restartPolicy,
     String workDir,
+    String resourceProfileId,
     List<String> postStartCommands,
     int postStartWaitMs,
     long createdAt
@@ -29,6 +30,7 @@ public record ContainerTemplate(
         if (volumes == null) volumes = List.of();
         if (env == null) env = Map.of();
         if (labels == null) labels = Map.of();
+        if (resourceProfileId == null) resourceProfileId = "";
         if (postStartCommands == null) postStartCommands = List.of();
     }
 }

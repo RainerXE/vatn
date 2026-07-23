@@ -41,6 +41,7 @@ public class JsonTemplateStore implements TemplateService {
             template.entrypoint(), template.ports(), template.volumes(),
             template.env(), template.labels(), template.networkMode(),
             template.restartPolicy(), template.workDir(),
+            template.resourceProfileId(),
             template.postStartCommands(), template.postStartWaitMs(),
             template.createdAt() > 0 ? template.createdAt() : System.currentTimeMillis()
         );

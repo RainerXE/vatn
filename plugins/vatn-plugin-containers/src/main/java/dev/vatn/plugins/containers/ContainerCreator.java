@@ -15,10 +15,12 @@ public class ContainerCreator {
 
     private final VProcessService processService;
     private final List<ContainerManager> managers;
+    private final ResourceProfileService profileService;
 
-    public ContainerCreator(VProcessService processService, List<ContainerManager> managers) {
+    public ContainerCreator(VProcessService processService, List<ContainerManager> managers, ResourceProfileService profileService) {
         this.processService = processService;
         this.managers = managers;
+        this.profileService = profileService;
     }
 
     public CreateResult createFromTemplate(ContainerTemplate template) {
@@ -133,6 +135,7 @@ public class ContainerCreator {
         if (t.entrypoint() != null && !t.entrypoint().isBlank()) {
             args.add("--entrypoint"); args.add(t.entrypoint());
         }
+        applyResourceArgs(args, t);
         args.add(t.image());
         if (t.command() != null && !t.command().isBlank()) {
             args.addAll(splitCommand(t.command()));
@@ -186,6 +189,44 @@ public class ContainerCreator {
 
     private static void parseDistroboxResult(String stdout) {
         // distrobox create prints success message; no container ID to parse
+    }
+
+    private void applyResourceArgs(List<String> args, ContainerTemplate t) {
+        String profileId = t.resourceProfileId();
+        if (profileId == null || profileId.isBlank()) return;
+
+        var profile = profileService.get(profileId);
+        if (profile.isEmpty()) {
+            log.warn("Resource profile {} not found; skipping resource args", profileId);
+            return;
+        }
+        var p = profile.get();
+
+        if (p.extraCliArgs() != null && !p.extraCliArgs().isBlank()) {
+            args.addAll(splitCommand(p.extraCliArgs()));
+            return;
+        }
+
+        if (p.cpuMax() != null && !p.cpuMax().isBlank()) {
+            args.add("--cpus"); args.add(p.cpuMax());
+        }
+        if (p.memoryMax() != null && !p.memoryMax().isBlank()) {
+            args.add("--memory"); args.add(p.memoryMax());
+        }
+        for (var d : p.deviceMounts()) {
+            if (d != null && !d.isBlank()) {
+                args.add("--device"); args.add(d);
+            }
+        }
+        if (p.gpuMode() != null && !p.gpuMode().isBlank() && !"none".equals(p.gpuMode())) {
+            if ("all".equals(p.gpuMode())) {
+                args.add("--gpus"); args.add("all");
+            } else if (p.gpuMode().startsWith("count:")) {
+                args.add("--gpus"); args.add(p.gpuMode());
+            } else {
+                args.add("--gpus"); args.add("device=" + p.gpuMode());
+            }
+        }
     }
 
     private static List<String> splitCommand(String cmd) {

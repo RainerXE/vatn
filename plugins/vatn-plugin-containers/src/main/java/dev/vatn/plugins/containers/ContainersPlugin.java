@@ -64,10 +64,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
         managers = List.copyOf(mgrList);
 
-        // 3. Initialize Template Service and Container Creator
+        // 3. Initialize Template Service, Resource Profile Service, and Container Creator
         TemplateService templateService = new JsonTemplateStore(context.getWorkspacePath());
         context.registerService(TemplateService.class, templateService);
-        ContainerCreator creator = new ContainerCreator(processService, managers);
+        ResourceProfileService profileService = new JsonResourceProfileStore(context.getWorkspacePath());
+        ContainerCreator creator = new ContainerCreator(processService, managers, profileService);
+
+        ContainerStackService stackService = new ContainerStackStore(context.getWorkspacePath());
+        StackDeployer deployer = new StackDeployer(creator, managers, processService, templateService);
 
         // 4. Register with Workload Registry
         context.getService(VWorkloadRegistry.class).ifPresent(registry -> {
@@ -273,6 +277,75 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                 res.sendEmpty();
             });
 
+            // Endpoint: List Profiles
+            routes.get("/api/profiles", (req, res) -> {
+                res.send(json.stringify(profileService.list()));
+            });
+
+            // Endpoint: Get Profile by ID
+            routes.get("/api/profiles/{id}", (req, res) -> {
+                var p = profileService.get(req.getPathParam("id"));
+                if (p.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
+                res.send(json.stringify(p.get()));
+            });
+
+            // Endpoint: Save Profile (create or update)
+            routes.post("/api/profiles", (req, res) -> {
+                try {
+                    var p = json.parse(req.getBody(), ResourceProfile.class);
+                    res.send(json.stringify(profileService.save(p)));
+                } catch (Exception e) {
+                    res.status(400).send("{\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
+            });
+
+            // Endpoint: Delete Profile
+            routes.delete("/api/profiles/{id}", (req, res) -> {
+                profileService.delete(req.getPathParam("id"));
+                res.sendEmpty();
+            });
+
+            // Endpoint: List Stacks
+            routes.get("/api/stacks", (req, res) -> {
+                res.send(json.stringify(stackService.list()));
+            });
+
+            // Endpoint: Get Stack by ID
+            routes.get("/api/stacks/{id}", (req, res) -> {
+                var s = stackService.get(req.getPathParam("id"));
+                if (s.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
+                res.send(json.stringify(s.get()));
+            });
+
+            // Endpoint: Save Stack (create or update)
+            routes.post("/api/stacks", (req, res) -> {
+                try {
+                    var s = json.parse(req.getBody(), ContainerStack.class);
+                    res.send(json.stringify(stackService.save(s)));
+                } catch (Exception e) {
+                    res.status(400).send("{\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
+            });
+
+            // Endpoint: Delete Stack
+            routes.delete("/api/stacks/{id}", (req, res) -> {
+                stackService.delete(req.getPathParam("id"));
+                res.sendEmpty();
+            });
+
+            // Endpoint: Deploy Stack
+            routes.post("/api/stacks/{id}/deploy", (req, res) -> {
+                var s = stackService.get(req.getPathParam("id"));
+                if (s.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
+                try {
+                    var result = deployer.deploy(s.get());
+                    res.send(json.stringify(result));
+                } catch (Exception e) {
+                    log.error("Stack deploy failed", e);
+                    res.status(500).send("{\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
+            });
+
             // Endpoint: List Templates
             routes.get("/api/templates", (req, res) -> {
                 var list = templateService.list();
@@ -319,7 +392,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                             null, cr.name(), "", cr.engine(), cr.image(),
                             cr.containerName(), cr.command(), null,
                             cr.ports(), cr.volumes(), cr.env() != null ? cr.env() : Map.of(),
-                            Map.of(), null, null, null,
+                            Map.of(), null, null, null, null,
                             cr.postStartCommands(), cr.postStartWaitMs(), 0
                         );
                     }
