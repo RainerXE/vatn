@@ -131,8 +131,8 @@ public class InventoryCommand implements Callable<Integer> {
         row("JAR",       jar.toString(),  exists(jar));
         row("Log (out)", out.toString(),  exists(out));
         row("Log (err)", err.toString(),  exists(err));
-        row("Admin URL", "http://localhost:8080/vatn/admin",      true);
-        row("Containers","http://localhost:8080/vatn/containers",  true);
+        row("Admin URL", "http://localhost:9108/vatn/admin",      true);
+        row("Containers","http://localhost:9108/vatn/containers",  true);
 
         // Detect OS and service registration
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -312,8 +312,8 @@ public class InventoryCommand implements Callable<Integer> {
         sb.append("    \"jar\": ").append(q(home.resolve("lib/vatn-webadmin.jar").toString())).append(",\n");
         sb.append("    \"jar_exists\": ").append(exists(home.resolve("lib/vatn-webadmin.jar"))).append(",\n");
         sb.append("    \"log_out\": ").append(q(home.resolve("logs/webadmin.out.log").toString())).append(",\n");
-        sb.append("    \"admin_url\": \"http://localhost:8080/vatn/admin\",\n");
-        sb.append("    \"containers_url\": \"http://localhost:8080/vatn/containers\"\n");
+        sb.append("    \"admin_url\": \"http://localhost:9108/vatn/admin\",\n");
+        sb.append("    \"containers_url\": \"http://localhost:9108/vatn/containers\"\n");
         sb.append("  },\n");
 
         // plugins

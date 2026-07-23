@@ -703,8 +703,8 @@ fi
     printf "%-30s %s\n" "jar"               "$INSTALL_DIR/lib/vatn-webadmin.jar"
     printf "%-30s %s\n" "log_out"           "$INSTALL_DIR/logs/webadmin.out.log"
     printf "%-30s %s\n" "log_err"           "$INSTALL_DIR/logs/webadmin.err.log"
-    printf "%-30s %s\n" "url_admin"         "http://localhost:8080/vatn/admin"
-    printf "%-30s %s\n" "url_containers"    "http://localhost:8080/vatn/containers"
+    printf "%-30s %s\n" "url_admin"         "http://localhost:9108/vatn/admin"
+    printf "%-30s %s\n" "url_containers"    "http://localhost:9108/vatn/containers"
     if [ "$PLATFORM" = "macos" ]; then
       printf "%-30s %s\n" "launchd_plist"   "$HOME/Library/LaunchAgents/dev.vatn.webadmin.plist"
       printf "%-30s %s\n" "service_label"   "dev.vatn.webadmin"
@@ -774,8 +774,8 @@ printf "\n"
 if $INSTALL_WEBADMIN; then
   printf "  ${BLD}VATN Web Admin:${RST}\n"
   printf "    Binary           →  ${CYN}%s${RST}\n" "$INSTALL_DIR/bin/vatn-webadmin"
-  printf "    Admin Dashboard  →  ${CYN}http://localhost:8080/vatn/admin${RST}\n"
-  printf "    Containers GUI   →  ${CYN}http://localhost:8080/vatn/containers${RST}\n"
+  printf "    Admin Dashboard  →  ${CYN}http://localhost:9108/vatn/admin${RST}\n"
+  printf "    Containers GUI   →  ${CYN}http://localhost:9108/vatn/containers${RST}\n"
   printf "    Logs             →  ${CYN}%s${RST}\n" "$INSTALL_DIR/logs/webadmin.out.log"
   if [ "$PLATFORM" = "macos" ]; then
     printf "    LaunchAgent      →  ${CYN}%s${RST}\n" "$HOME/Library/LaunchAgents/dev.vatn.webadmin.plist"

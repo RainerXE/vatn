@@ -177,7 +177,7 @@ fi
 
 echo ""
 echo -e "${GREEN}✓ VATN Web Admin installed successfully!${NC}"
-echo -e "  Admin Dashboard : ${BLUE}http://localhost:8080/vatn/admin${NC}"
-echo -e "  Containers GUI  : ${BLUE}http://localhost:8080/vatn/containers${NC}"
+echo -e "  Admin Dashboard : ${BLUE}http://localhost:9108/vatn/admin${NC}"
+echo -e "  Containers GUI  : ${BLUE}http://localhost:9108/vatn/containers${NC}"
 echo -e ""
 echo -e "${YELLOW}Tip: Set VATN_ADMIN_PASS and VATN_JWT_SECRET env vars before starting in production.${NC}"

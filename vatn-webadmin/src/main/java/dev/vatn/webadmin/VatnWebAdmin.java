@@ -24,7 +24,7 @@ import java.util.Map;
  *   VATN_JWT_SECRET   — JWT signing secret (min 32 chars); exits with error if unset
  *   VATN_ADMIN_USER   — admin username; exits with error if unset
  *   VATN_ADMIN_PASS   — admin password; exits with error if unset
- *   PORT              — HTTP port (default: 8080, or pass as first CLI arg)
+ *   PORT              — HTTP port (default: 9108, or pass as first CLI arg)
  * </pre>
  *
  * <p>Pass {@code --dev} as the first CLI argument to use development defaults
@@ -38,7 +38,7 @@ public class VatnWebAdmin {
 
     public static void main(String[] args) {
         boolean devMode = false;
-        int port = 8080;
+        int port = 9108;
         for (String arg : args) {
             if ("--dev".equals(arg)) { devMode = true; continue; }
             try { port = Integer.parseInt(arg); } catch (NumberFormatException ignored) {}
