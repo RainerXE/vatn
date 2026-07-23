@@ -40,9 +40,11 @@ final class AdminHtml {
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="min-h-screen font-mono text-sm"
-      x-data="{ authed: !!sessionStorage.getItem('vatn_admin_token') }">
+      x-data="{ authed: !!sessionStorage.getItem('vatn_admin_token') }"
+      x-init="authed && $nextTick(() => { document.querySelectorAll('[hx-get]').forEach(el => htmx.trigger(el, 'load')) })">
 
 <!-- Nav bar -->
 <nav class="sticky top-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center gap-4">
@@ -58,7 +60,7 @@ final class AdminHtml {
 <div x-show="!authed"
      x-data="{ loading: false, error: '' }"
      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/95"
-     style="display: none;">
+     x-cloak>
   <div class="bg-gray-900 border border-gray-700 rounded-xl p-8 w-96 shadow-2xl">
     <h2 class="text-lg font-semibold text-white mb-1">VATN Admin</h2>
     <p class="text-gray-400 text-xs mb-6">Sign in with your admin credentials.</p>
@@ -123,7 +125,7 @@ final class AdminHtml {
 </div>
 
 <!-- Main content (HTMX sections) -->
-<main x-show="authed" style="display: none;"
+<main x-show="authed" x-cloak
       class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
   <!-- Row 1: Overview + Health -->

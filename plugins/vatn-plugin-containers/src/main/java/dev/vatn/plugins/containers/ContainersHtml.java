@@ -775,7 +775,7 @@ public final class ContainersHtml {
 
     function dashboard() {
       return {
-        currentTab: 'overview',
+        currentTab: 'containers',
         termOpen: false,
         termTitle: '',
         showTemplateForm: false,
