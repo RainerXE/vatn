@@ -201,18 +201,32 @@ vatn run                 # starts node on :8080
 After installation:
 
 ```
-Admin Dashboard  →  http://localhost:8080/vatn/admin
-Containers GUI   →  http://localhost:8080/vatn/containers
+Admin Dashboard  →  http://localhost:9108/vatn/admin
+Containers GUI   →  http://localhost:9108/vatn/containers
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8080` | HTTP port |
+| `PORT` | `9108` | HTTP port |
+| `VATN_ADMIN_TOKEN` | *(none)* | Admin dashboard bearer token — enter this value in the browser login prompt |
 | `VATN_ADMIN_USER` | `admin` | Login username |
 | `VATN_ADMIN_PASS` | `vatnadmin` | Login password — **change in production** |
 | `VATN_JWT_SECRET` | dev placeholder | JWT signing secret — **must be 32+ chars in production** |
+
+### First-time access
+
+When you open the admin dashboard, the browser shows a bearer-token prompt.  
+Enter the value of `VATN_ADMIN_TOKEN` (any value works if unset — the backend skips auth when no token is configured).
+
+To set a token:
+```bash
+export VATN_ADMIN_TOKEN=my-secret
+# then restart (see below)
+```
+
+The token can be any string — no length or character rules.
 
 ### Service management
 
