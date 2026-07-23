@@ -162,8 +162,13 @@ public class WebAdminCommand {
 
         @Override
         public Integer call() throws Exception {
+            boolean restartDev = dev;
+            String restartPort = port;
             new Stop().call();
-            return new Start() {{ this.dev = dev; this.port = port; }}.call();
+            Start s = new Start();
+            s.dev = restartDev;
+            s.port = restartPort;
+            return s.call();
         }
     }
 
