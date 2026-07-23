@@ -641,16 +641,17 @@ if $INSTALL_CORE; then
     ok "PATH added to $rc"
   }
 
-  SHELL_NAME="$(basename "${SHELL:-bash}")"
-  case "$SHELL_NAME" in
-    zsh)  _add_to_rc "$HOME/.zshrc" ;;
-    bash) _add_to_rc "$HOME/.bashrc"; _add_to_rc "$HOME/.bash_profile" ;;
-    fish)
-      mkdir -p "$HOME/.config/fish/conf.d"
-      printf 'fish_add_path %s\n' "$INSTALL_DIR/bin" >"$HOME/.config/fish/conf.d/vatn.fish"
-      ok "Fish path configured"
-      ;;
-    *) _add_to_rc "$HOME/.profile" ;;
+  # Use login shell ($SHELL) so PATH persists in the right rc file
+  CUR_SHELL="$(basename "${SHELL:-bash}")"
+  case "$CUR_SHELL" in
+    zsh)  RC_FILE="$HOME/.zshrc";             _add_to_rc "$RC_FILE" ;;
+    bash) RC_FILE="$HOME/.bashrc";            _add_to_rc "$RC_FILE"; _add_to_rc "$HOME/.bash_profile" ;;
+    fish) RC_FILE="$HOME/.config/fish/conf.d/vatn.fish"
+          mkdir -p "$(dirname "$RC_FILE")"
+          printf 'fish_add_path %s\n' "$INSTALL_DIR/bin" >"$RC_FILE"
+          ok "Fish path configured"
+          ;;
+    *)    RC_FILE="$HOME/.profile";           _add_to_rc "$RC_FILE" ;;
   esac
   export PATH="$INSTALL_DIR/bin:$PATH"
 fi
@@ -742,7 +743,7 @@ fi
   printf "[PATH]\n"
   if $INSTALL_CORE; then
     printf "%-30s %s\n" "added_to_path"   "$INSTALL_DIR/bin"
-    printf "%-30s %s\n" "shell_rc"        "$([ -n "${SHELL:-}" ] && echo "$HOME/.$(basename $SHELL)rc" || echo 'see shell rc')"
+    printf "%-30s %s\n" "shell_rc"        "${RC_FILE:-see shell rc}"
   fi
   printf "\n"
   printf "%-30s %s\n" "this_log"          "$INSTALL_LOG"
@@ -796,7 +797,7 @@ printf "\n"
 
 printf "  ${BLD}Next steps:${RST}\n"
 if $INSTALL_CORE; then
-  printf "  ${DIM}1.${RST}  Reload shell:      ${CYN}source ~/.%src${RST}\n" "${SHELL_NAME:-bash}"
+  printf "  ${DIM}1.${RST}  Reload shell:      ${CYN}source %s${RST}\n" "${RC_FILE:-~/.bashrc}"
   printf "  ${DIM}2.${RST}  Verify:            ${CYN}vatn --version${RST}\n"
   printf "  ${DIM}3.${RST}  Create a project:  ${CYN}vatn init my-project${RST}\n"
   printf "  ${DIM}4.${RST}  Start a node:      ${CYN}vatn run${RST}\n"
