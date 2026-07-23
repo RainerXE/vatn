@@ -53,7 +53,7 @@ public final class ContainersHtml {
       background-color: var(--bg-color);
       color: var(--text-main);
       font-family: var(--font-sans);
-      min-height: 100 screen;
+      min-height: 100vh;
       display: flex;
       overflow-x: hidden;
     }
@@ -590,11 +590,11 @@ public final class ContainersHtml {
             </div>
             <div class="full">
               <label>Ports (one per line, e.g. 8080:80)</label>
-              <textarea x-model="editingTemplate ? editingTemplate.ports.join('\n') : templatePorts" placeholder="8080:80"></textarea>
+              <textarea x-model="editingTemplate ? editingTemplate.ports.join('\\n') : templatePorts" placeholder="8080:80"></textarea>
             </div>
             <div class="full">
               <label>Environment Variables (one per line, e.g. ENV=prod)</label>
-              <textarea x-model="editingTemplate ? Object.entries(editingTemplate.env).map(([k,v]) => k+'='+v).join('\n') : templateEnv" placeholder="ENV=prod"></textarea>
+              <textarea x-model="editingTemplate ? Object.entries(editingTemplate.env).map(([k,v]) => k+'='+v).join('\\n') : templateEnv" placeholder="ENV=prod"></textarea>
             </div>
             <div>
               <label>Resource Profile</label>
@@ -607,7 +607,7 @@ public final class ContainersHtml {
             </div>
             <div class="full">
               <label>Post-Start Commands (one per line)</label>
-              <textarea x-model="editingTemplate ? (editingTemplate.postStartCommands || []).join('\n') : templatePostStart" placeholder="touch /tmp/ready&#10;echo 'started'"></textarea>
+              <textarea x-model="editingTemplate ? (editingTemplate.postStartCommands || []).join('\\n') : templatePostStart" placeholder="touch /tmp/ready&#10;echo 'started'"></textarea>
             </div>
           </div>
         </div>
@@ -859,11 +859,11 @@ public final class ContainersHtml {
 
         async saveTemplate() {
           const t = this.editingTemplate || {};
-          const ports = (this.editingTemplate ? (t.ports || []) : (this.templatePorts ? this.templatePorts.split('\n').filter(Boolean) : []));
-          const envArr = this.editingTemplate ? Object.entries(t.env || {}).map(([k,v]) => k+'='+v) : (this.templateEnv ? this.templateEnv.split('\n').filter(Boolean) : []);
+          const ports = (this.editingTemplate ? (t.ports || []) : (this.templatePorts ? this.templatePorts.split('\\n').filter(Boolean) : []));
+          const envArr = this.editingTemplate ? Object.entries(t.env || {}).map(([k,v]) => k+'='+v) : (this.templateEnv ? this.templateEnv.split('\\n').filter(Boolean) : []);
           const env = {};
           envArr.forEach(line => { const [k, ...v] = line.split('='); if(k) env[k.trim()] = v.join('=').trim(); });
-          const postStart = this.editingTemplate ? (t.postStartCommands || []) : (this.templatePostStart ? this.templatePostStart.split('\n').filter(Boolean) : []);
+          const postStart = this.editingTemplate ? (t.postStartCommands || []) : (this.templatePostStart ? this.templatePostStart.split('\\n').filter(Boolean) : []);
           const body = {
             id: t.id || null,
             name: this.editingTemplate ? t.name : this.templateName,
@@ -929,7 +929,7 @@ public final class ContainersHtml {
           this.profileCpuMax = p.cpuMax || '';
           this.profileMemoryMin = p.memoryMin || '';
           this.profileMemoryMax = p.memoryMax || '';
-          this.profileDevices = (p.deviceMounts || []).join('\n');
+          this.profileDevices = (p.deviceMounts || []).join('\\n');
           this.profileGpuMode = p.gpuMode || 'none';
           this.profileExtraCli = p.extraCliArgs || '';
         },
@@ -943,7 +943,7 @@ public final class ContainersHtml {
             cpuMax: this.profileCpuMax || null,
             memoryMin: this.profileMemoryMin || null,
             memoryMax: this.profileMemoryMax || null,
-            deviceMounts: this.profileDevices ? this.profileDevices.split('\n').filter(Boolean) : [],
+            deviceMounts: this.profileDevices ? this.profileDevices.split('\\n').filter(Boolean) : [],
             gpuMode: this.profileGpuMode,
             extraCliArgs: this.profileExtraCli || null,
             createdAt: this.editingProfile?.createdAt || 0
