@@ -74,18 +74,54 @@ public final class ContainersHtml {
     }
 
     /* Sidebar navigation */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(20,22,29,0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .nav-brand {
+      color: #60a5fa;
+      font-weight: 600;
+      font-size: 14px;
+      margin-right: 4px;
+    }
+    .nav-link {
+      color: #9ca3af;
+      text-decoration: none;
+      font-size: 12px;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #f3f4f6; }
+    .nav-current {
+      color: #f3f4f6;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .nav-meta {
+      color: #6b7280;
+      font-size: 11px;
+      margin-left: auto;
+    }
+
     .sidebar {
       width: 260px;
       background: var(--sidebar-bg);
       border-right: 1px solid var(--card-border);
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: calc(100vh - 40px);
       position: fixed;
       left: 0;
-      top: 0;
+      top: 40px;
       z-index: 10;
-      padding: 24px;
+      padding: 20px 24px;
     }
 
     .logo-container {
@@ -139,9 +175,9 @@ public final class ContainersHtml {
     .main-content {
       margin-left: 260px;
       flex-grow: 1;
-      padding: 40px;
+      padding: 24px 32px;
       overflow-y: auto;
-      height: 100vh;
+      height: calc(100vh - 40px);
     }
 
     .header-bar {
@@ -363,6 +399,16 @@ public final class ContainersHtml {
 </head>
 <body x-data="dashboard()">
 
+  <!-- Full-width top nav bar (spans sidebar + content, like a desktop menu bar) -->
+  <nav class="top-nav">
+    <span class="nav-brand">&#x2B21; VATN</span>
+    <a href="/vatn/admin" class="nav-link">Dashboard</a>
+    <span class="nav-link nav-current">Containers</span>
+    <span id="top-node" class="nav-meta">&#8212;</span>
+    <span id="top-flavor" class="nav-meta">&#8212;</span>
+    <span id="top-uptime" class="nav-meta">&#8212;</span>
+  </nav>
+
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo-container">
@@ -401,13 +447,6 @@ public final class ContainersHtml {
   <!-- Main Content Area -->
   <main class="main-content">
     
-    <!-- Top nav bar for switching between admin pages -->
-    <nav style="display: flex; align-items: center; gap: 16px; padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06);">
-      <span style="color: #60a5fa; font-weight: 600; font-size: 13px;">&#x2B21; VATN</span>
-      <a href="/vatn/admin" style="color: #9ca3af; text-decoration: none; font-size: 12px;">Dashboard</a>
-      <span style="color: #f3f4f6; font-size: 12px; font-weight: 500;">Containers</span>
-    </nav>
-
     <div class="header-bar">
       <div class="title-group">
         <h1 x-text="currentTab.charAt(0).toUpperCase() + currentTab.slice(1)">Overview</h1>

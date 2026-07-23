@@ -47,9 +47,9 @@ final class AdminHtml {
       x-init="authed && $nextTick(() => { document.querySelectorAll('[hx-get]').forEach(el => htmx.trigger(el, 'load')) })">
 
 <!-- Nav bar -->
-<nav class="sticky top-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center gap-4">
-  <span class="text-blue-400 font-semibold tracking-tight">&#x2B21; VATN Admin</span>
-  <a href="__BASE__" class="text-gray-300 hover:text-white transition text-xs">Dashboard</a>
+<nav class="sticky top-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center gap-5" style="font-family: 'Inter', sans-serif;">
+  <span class="text-blue-400 font-semibold tracking-tight" style="font-size: 14px;">&#x2B21; VATN</span>
+  <a href="__BASE__" class="text-blue-300 hover:text-white transition text-xs font-medium" style="text-decoration: none;">Dashboard</a>
   <!-- CONTRIBUTED_LINKS -->
   <span id="hdr-node" class="text-gray-500 text-xs ml-auto">&#8212;</span>
   <span id="hdr-flavor" class="text-gray-600 text-xs">&#8212;</span>
