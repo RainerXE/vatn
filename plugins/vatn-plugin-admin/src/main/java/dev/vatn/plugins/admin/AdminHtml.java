@@ -56,28 +56,62 @@ final class AdminHtml {
 
 <!-- Auth modal (Alpine.js) -->
 <div x-show="!authed"
+     x-data="{ loading: false, error: '' }"
      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/95"
      style="display: none;">
   <div class="bg-gray-900 border border-gray-700 rounded-xl p-8 w-96 shadow-2xl">
     <h2 class="text-lg font-semibold text-white mb-1">VATN Admin</h2>
-    <p class="text-gray-400 text-xs mb-6">Enter your bearer token to continue.</p>
-    <input id="token-input" type="password" placeholder="Bearer token..."
+    <p class="text-gray-400 text-xs mb-6">Sign in with your admin credentials.</p>
+    <input id="login-user" type="text" placeholder="Username"
+           class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-3"/>
+    <input id="login-pass" type="password" placeholder="Password"
            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"/>
     <button @click="
-      const t = document.getElementById('token-input').value.trim();
-      if (t) {
-        sessionStorage.setItem('vatn_admin_token', t);
-        authed = true;
-        setTimeout(function() {
-          document.querySelectorAll('[hx-get]').forEach(function(el) {
-            htmx.trigger(el, 'load');
-          });
-        }, 100);
-      }
-    " class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 font-medium transition">
+      const u = document.getElementById('login-user').value.trim();
+      const p = document.getElementById('login-pass').value.trim();
+      if (!u || !p) return;
+      loading = true; error = '';
+      fetch('__BASE__/../auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      }).then(r => r.json()).then(data => {
+        if (data.accessToken) {
+          sessionStorage.setItem('vatn_admin_token', data.accessToken);
+          authed = true;
+          setTimeout(function() {
+            document.querySelectorAll('[hx-get]').forEach(function(el) {
+              htmx.trigger(el, 'load');
+            });
+          }, 100);
+        } else {
+          error = 'Login failed';
+          loading = false;
+        }
+      }).catch(function() {
+        // Fallback: try VATN_ADMIN_TOKEN directly (standalone mode, no AuthPlugin)
+        fetch('__BASE__/api/overview', {
+          headers: { 'Authorization': 'Bearer ' + p }
+        }).then(r => {
+          if (r.ok) {
+            sessionStorage.setItem('vatn_admin_token', p);
+            authed = true;
+            setTimeout(function() {
+              document.querySelectorAll('[hx-get]').forEach(function(el) {
+                htmx.trigger(el, 'load');
+              });
+            }, 100);
+          } else {
+            error = 'Login failed';
+            loading = false;
+          }
+        });
+      });
+    " class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 font-medium transition"
+    x-text="loading ? 'Signing in…' : 'Sign in'">
       Sign in
     </button>
-    <p id="auth-error" class="text-red-400 text-xs mt-3 hidden">Invalid token.</p>
+    <p x-show="error" x-text="error" class="text-red-400 text-xs mt-3"></p>
   </div>
 </div>
 

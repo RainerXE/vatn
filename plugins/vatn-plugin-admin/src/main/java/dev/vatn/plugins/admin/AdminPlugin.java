@@ -343,6 +343,8 @@ public class AdminPlugin implements VNodePlugin {
 
     private boolean authorized(VHttpRequest req, VHttpResponse res) {
         if (!config.isAuthEnabled()) return true;
+        // Accept if AuthFilter already validated (JWT from /auth/login)
+        if (req.getAttribute("vatn.auth", Object.class).isPresent()) return true;
         String header = req.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             if (config.getToken().equals(header.substring(7).trim())) return true;
