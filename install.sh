@@ -323,12 +323,22 @@ set -euo pipefail
 : "${BRANCH:=main}"
 : "${ORG:=RainerXE}"
 : "${REPO:=vatn}"
+: "${THREADS:=}"
 RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[0;33m'; BLU='\033[0;34m'; DIM='\033[2m'; RST='\033[0m'
 ok()  { printf "  ${GRN}✓${RST}  %s\n" "$1"; }
 info(){ printf "  ${BLU}→${RST}  %s\n" "$1"; }
 warn(){ printf "  ${YLW}⚠${RST}  %s\n" "$1"; }
 die() { printf "  ${RED}✗${RST}  %s\n" "$1"; exit 1; }
 step() { printf "\n${BLU}══ %s${RST}\n" "$1"; }
+if [ -t 0 ] && [ -z "${THREADS:-}" ]; then
+  echo ""; echo "  Build speed:"; echo "    1) Fast — use all CPU cores (default)"; echo "    2) Low load — 1 thread"
+  read -r -t 10 REPLY || true
+  case "${REPLY:-1}" in 2|low|slow|l) THREADS="1" ;; *) THREADS="1C" ;; esac
+  echo ""
+elif [ -z "${THREADS:-}" ]; then
+  THREADS="1C"
+fi
+info "Build threads: $THREADS (set THREADS=1 for low load)"
 command -v git >/dev/null 2>&1 || die "git is required"
 command -v mvn >/dev/null 2>&1 || die "Maven (mvn) is required"
 step "Source"
@@ -356,7 +366,7 @@ HAS_WEBADMIN=false
 if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then
   HAS_WEBADMIN=true
 fi
-if ! mvn package -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q; then
+if ! mvn package -T "$THREADS" -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q; then
   die "Build failed"
 fi
 INSTALLED_PLUGINS=()
@@ -367,7 +377,7 @@ if [ -d "$VATN_HOME/plugins" ]; then
 fi
 for plugin in "${INSTALLED_PLUGINS[@]}"; do
   printf "  %s … " "$plugin"
-  if mvn package -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then printf "OK\n"; else printf "failed\n"; fi
+  if mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then printf "OK\n"; else printf "failed\n"; fi
 done
 step "Install"
 mkdir -p "$VATN_HOME"/{lib,plugins,bin}

@@ -8,6 +8,7 @@ set -euo pipefail
 : "${BRANCH:=main}"
 : "${ORG:=RainerXE}"
 : "${REPO:=vatn}"
+: "${THREADS:=1C}"
 
 RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[0;33m'; BLU='\033[0;34m'; DIM='\033[2m'; RST='\033[0m'
 ok()  { printf "  ${GRN}✓${RST}  %s\n" "$1"; }
@@ -16,6 +17,23 @@ warn(){ printf "  ${YLW}⚠${RST}  %s\n" "$1"; }
 die() { printf "  ${RED}✗${RST}  %s\n" "$1"; exit 1; }
 
 step() { printf "\n${BLU}══ %s${RST}\n" "$1"; }
+
+# ── thread count ──────────────────────────────────────────────────────────────
+if [ -t 0 ] && [ -z "${THREADS:-}" ] && [ -z "${MAVEN_THREADS:-}" ]; then
+  echo ""
+  echo "  Build speed:"
+  echo "    1) Fast — use all CPU cores (default)"
+  echo "    2) Low load — 1 thread"
+  read -r -t 10 REPLY || true
+  case "${REPLY:-1}" in
+    2|low|slow|l) THREADS="1" ;;
+    *)             THREADS="1C" ;;
+  esac
+  echo ""
+elif [ -z "${THREADS:-}" ]; then
+  THREADS="1C"
+fi
+info "Build threads: $THREADS (set THREADS=1 for low load)"
 
 # ── requirements ──────────────────────────────────────────────────────────────
 command -v git >/dev/null 2>&1 || die "git is required"
@@ -66,7 +84,7 @@ $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
 
 info "Building: $BUILD_MODULES"
 # Only build vatn-cli + webadmin centrally; plugins built individually below
-if ! mvn package -pl "$BUILD_MODULES" -am -DskipTests -q; then
+if ! mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q; then
   die "Build failed for modules: $BUILD_MODULES"
 fi
 ok "Modules built: $BUILD_MODULES"
@@ -84,7 +102,7 @@ if [ ${#INSTALLED_PLUGINS[@]} -gt 0 ]; then
   info "Rebuilding ${#INSTALLED_PLUGINS[@]} installed plugin(s) …"
   for plugin in "${INSTALLED_PLUGINS[@]}"; do
     printf "  ${DIM}%s${RST} … " "$plugin"
-    if mvn package -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then
+    if mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then
       printf "${GRN}OK${RST}\n"
     else
       printf "${RED}failed${RST}\n"
