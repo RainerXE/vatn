@@ -353,7 +353,9 @@ if [ -d ".git" ]; then
 fi
 step "Build"
 HAS_WEBADMIN=false
-[ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ] && HAS_WEBADMIN=true
+if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then
+  HAS_WEBADMIN=true
+fi
 if ! mvn package -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q; then
   die "Build failed"
 fi

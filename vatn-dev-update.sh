@@ -57,7 +57,9 @@ step "Build"
 
 # Detect which parts are installed
 HAS_WEBADMIN=false
-[ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ] && HAS_WEBADMIN=true
+if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then
+  HAS_WEBADMIN=true
+fi
 
 BUILD_MODULES="vatn-cli"
 $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
