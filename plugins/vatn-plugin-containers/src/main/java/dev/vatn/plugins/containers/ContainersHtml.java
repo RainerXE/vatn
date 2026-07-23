@@ -998,6 +998,12 @@ public final class ContainersHtml {
       term.onData((data) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(data); });
     };
   </script>
+  <script>
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+      const token = sessionStorage.getItem('vatn_admin_token');
+      if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
+    });
+  </script>
 </body>
 </html>
 """;

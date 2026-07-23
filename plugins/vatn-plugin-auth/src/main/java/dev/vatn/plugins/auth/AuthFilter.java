@@ -62,9 +62,10 @@ public class AuthFilter implements VHttpFilter {
             req.setAttribute(AUTH_ATTRIBUTE, ctx);
             log.debug("Authenticated request for subject '{}'", ctx.subject());
         } catch (AuthenticationException e) {
-            log.debug("Token rejected: {}", e.getMessage());
-            res.status(401).sendJson("{\"error\":\"Invalid or expired token\"}");
-            return;
+            // Token is not a valid JWT — pass through without setting attribute,
+            // so downstream plugins (e.g. AdminPlugin) can check their own tokens
+            // (e.g. VATN_ADMIN_TOKEN) against the raw Authorization header.
+            log.debug("Token rejected, passing through: {}", e.getMessage());
         }
 
         chain.proceed(req, res);

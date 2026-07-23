@@ -115,7 +115,11 @@ else
     echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-cli"
     $HAS_WEBADMIN && echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
     for plugin in "${INSTALLED_PLUGINS[@]}"; do
-      echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null && BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"
+      if echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null; then
+        BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"
+        # Webadmin bundles its plugins in the fat JAR — rebuild it too
+        $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+      fi
     done
     BUILD_MODULES="${BUILD_MODULES#,}"
     if [ -n "$BUILD_MODULES" ]; then
