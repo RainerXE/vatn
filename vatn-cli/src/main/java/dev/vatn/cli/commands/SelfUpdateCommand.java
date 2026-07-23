@@ -195,30 +195,9 @@ public class SelfUpdateCommand implements Callable<Integer> {
     }
 
     private static String assetNameForCurrentPlatform() {
-        String os = System.getProperty("os.name").toLowerCase();
-        String arch = System.getProperty("os.arch").toLowerCase();
-
-        String platform;
-        if (os.contains("linux")) {
-            platform = "Linux";
-        } else if (os.contains("mac") || os.contains("darwin")) {
-            platform = "Darwin";
-        } else if (os.contains("win")) {
-            platform = "Windows";
-        } else {
-            platform = os;
-        }
-
-        String archNorm;
-        if (arch.contains("aarch64") || arch.contains("arm64")) {
-            archNorm = "arm64";
-        } else if (arch.contains("amd64") || arch.contains("x86_64")) {
-            archNorm = "x86_64";
-        } else {
-            archNorm = arch;
-        }
-
-        return "vatn-" + platform + "-" + archNorm;
+        // Always download vatn-cli.jar — the release doesn't bundle native
+        // CLI binaries yet. Native-binary users can build with build-native.sh.
+        return "vatn-cli.jar";
     }
 
     // ── download ─────────────────────────────────────────────────────────────
