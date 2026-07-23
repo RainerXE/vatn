@@ -410,6 +410,8 @@ Documentation=https://github.com/RainerXE/vatn
 After=network.target
 
 [Service]
+# Pass --dev to bypass JWT_SECRET / ADMIN_PASS checks for local dev.
+# In production, set VATN_JWT_SECRET, VATN_ADMIN_USER, VATN_ADMIN_PASS env vars.
 ExecStart=${WEBADMIN_BIN}
 Restart=on-failure
 RestartSec=5

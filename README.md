@@ -244,6 +244,27 @@ systemctl --user start vatn-webadmin   # start
 systemctl --user disable vatn-webadmin # uninstall from autostart
 ```
 
+### CLI management
+
+The `vatn webadmin` command handles everything from a single entry point:
+
+```bash
+vatn webadmin start                     # start on port 8080 (production)
+vatn webadmin start --dev               # start on port 9108 (dev mode, no auth)
+vatn webadmin start --dev --port 9090   # custom port in dev mode
+vatn webadmin stop                      # stop the service
+vatn webadmin restart                   # restart
+vatn webadmin restart --dev             # restart in dev mode
+vatn webadmin status                    # show binary, JAR, and service status
+vatn webadmin config                    # show current configuration
+
+vatn webadmin token                     # show current VATN_ADMIN_TOKEN
+vatn webadmin token my-secret           # set the admin dashboard bearer token
+```
+
+The CLI auto-detects your platform (launchd on macOS, systemd on Linux) and
+whether you're running as root (system-wide) or a regular user (user-local).
+
 ### Build & run locally
 
 ```bash
