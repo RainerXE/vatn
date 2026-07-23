@@ -26,6 +26,7 @@ public final class ContainersHtml {
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 
   <style>
+    body { padding-top: 40px; }
     :root {
       --bg-color: #0d0e11;
       --sidebar-bg: #14161d;
@@ -75,9 +76,12 @@ public final class ContainersHtml {
 
     /* Sidebar navigation */
     .top-nav {
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       z-index: 100;
+      height: 40px;
       background: rgba(20,22,29,0.95);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -176,8 +180,8 @@ public final class ContainersHtml {
       margin-left: 260px;
       flex-grow: 1;
       padding: 24px 32px;
-      overflow-y: auto;
-      height: calc(100vh - 40px);
+      min-height: calc(100vh - 40px);
+      box-sizing: border-box;
     }
 
     .header-bar {
