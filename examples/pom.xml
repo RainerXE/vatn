@@ -7,7 +7,7 @@
 
     <groupId>dev.vatn.examples</groupId>
     <artifactId>vatn-examples-parent</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
     <packaging>pom</packaging>
     <name>VATN Examples — Parent</name>
 
@@ -28,7 +28,7 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <vatn.version>1.0-alpha.14</vatn.version>
+        <vatn.version>1.0-alpha.15</vatn.version>
         <native.maven.plugin.version>0.10.1</native.maven.plugin.version>
     </properties>
 

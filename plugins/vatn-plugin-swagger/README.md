@@ -13,7 +13,7 @@ Registers two HTTP endpoints: `GET /api-docs` returns an OpenAPI 3.0 JSON docume
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-swagger</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

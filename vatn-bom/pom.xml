@@ -7,7 +7,7 @@
     <parent>
         <groupId>dev.vatn</groupId>
         <artifactId>vatn-parent</artifactId>
-        <version>1.0-alpha.14</version>
+        <version>1.0-alpha.15</version>
     </parent>
 
     <artifactId>vatn-bom</artifactId>
@@ -24,7 +24,7 @@
               &lt;dependency&gt;
                 &lt;groupId&gt;dev.vatn&lt;/groupId&gt;
                 &lt;artifactId&gt;vatn-bom&lt;/artifactId&gt;
-                &lt;version&gt;1.0-alpha.14&lt;/version&gt;
+                &lt;version&gt;1.0-alpha.15&lt;/version&gt;
                 &lt;type&gt;pom&lt;/type&gt;
                 &lt;scope&gt;import&lt;/scope&gt;
               &lt;/dependency&gt;

@@ -13,7 +13,7 @@ Creates a Jedis client on plugin initialisation using the supplied host, port, a
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-redis</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

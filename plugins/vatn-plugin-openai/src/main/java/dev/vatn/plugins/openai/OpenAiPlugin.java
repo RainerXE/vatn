@@ -39,7 +39,7 @@ public class OpenAiPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.openai"; }
     @Override public String getName()    { return "VATN OpenAI/Claude Plugin"; }
-    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
+    @Override public String getVersion() { return "1.0-alpha.15-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

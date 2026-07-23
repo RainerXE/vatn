@@ -4,7 +4,7 @@
 Sandboxed Python process management for VATN nodes — with **Pinokio-compatible `run[]` script format**, virtual environment management (uv / pip / conda), supervised daemon processes, and a live admin UI.
 
 > **Admin UI** → `GET /python/ui`  
-> **Runtime** → VATN 1.0-alpha.14+  
+> **Runtime** → VATN 1.0-alpha.15+  
 > **Pinokio compatibility** → reads `pinokio.json` scripts directly
 
 ---

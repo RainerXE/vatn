@@ -13,7 +13,7 @@ Uses VATN's built-in `VHttpClient` to POST JSON to the `/v1/chat/completions` en
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-openai</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

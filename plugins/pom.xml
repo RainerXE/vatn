@@ -7,13 +7,13 @@
     <parent>
         <groupId>dev.vatn</groupId>
         <artifactId>vatn-parent</artifactId>
-        <version>1.0-alpha.14</version>
+        <version>1.0-alpha.15</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugins-parent</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
     <packaging>pom</packaging>
 
     <name>VATN Plugins Parent</name>

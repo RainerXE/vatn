@@ -13,7 +13,7 @@ Uses Jsoup to make HTTP GET requests for each configured URL and applies CSS sel
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-scraper</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

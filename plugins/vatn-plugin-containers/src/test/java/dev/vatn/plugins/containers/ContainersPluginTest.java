@@ -324,7 +324,7 @@ class ContainersPluginTest {
         var plugin = new ContainersPlugin();
         assertEquals("plugin.containers", plugin.getId());
         assertEquals("Containers Management Plugin", plugin.getName());
-        assertEquals("1.0-alpha.14-preview", plugin.getVersion());
+        assertEquals("1.0-alpha.15-preview", plugin.getVersion());
     }
 
     @Test

@@ -96,7 +96,7 @@ class MongoPluginTest {
         var plugin = new MongoPlugin(MongoConfig.localhost("test"));
         assertEquals("dev.vatn.plugins.mongodb", plugin.getId());
         assertEquals("VATN MongoDB Plugin", plugin.getName());
-        assertEquals("1.0-alpha.14-preview", plugin.getVersion());
+        assertEquals("1.0-alpha.15-preview", plugin.getVersion());
     }
 
     @Test

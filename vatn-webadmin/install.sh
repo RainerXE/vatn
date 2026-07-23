@@ -78,7 +78,7 @@ echo -e "${BLUE}==> Looking for binary...${NC}"
 
 # Check for a locally built native image first (dev workflow)
 LOCAL_NATIVE="$(dirname "$0")/target/${BINARY_NAME}"
-LOCAL_JAR="$(dirname "$0")/target/${BINARY_NAME}-1.0-alpha.14.jar"
+LOCAL_JAR="$(dirname "$0")/target/${BINARY_NAME}-1.0-alpha.15.jar"
 
 if [ -f "$LOCAL_NATIVE" ]; then
     echo -e "${BLUE}==> Found local native binary: $LOCAL_NATIVE${NC}"

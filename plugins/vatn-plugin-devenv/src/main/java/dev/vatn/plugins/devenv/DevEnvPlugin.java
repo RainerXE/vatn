@@ -30,7 +30,7 @@ public final class DevEnvPlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.devenv"; }
     @Override public String getName()    { return "VATN DevEnv Scanner"; }
-    @Override public String getVersion() { return "1.0-alpha.14"; }
+    @Override public String getVersion() { return "1.0-alpha.15"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

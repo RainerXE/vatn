@@ -13,7 +13,7 @@ Registers a single `GET` route (default `/vatn/admin`) that returns a minimal HT
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-admin</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

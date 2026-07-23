@@ -176,7 +176,7 @@ VATN_PLUGINS=cors,auth,swagger,postgres \
 ```bash
 source ~/.zshrc          # reload shell (or open a new terminal)
 
-vatn --version           # VATN Runtime 1.0-alpha.14
+vatn --version           # VATN Runtime 1.0-alpha.15
 vatn init my-project     # scaffold a new plugin project
 cd my-project
 vatn run                 # starts node on :8080
@@ -272,7 +272,7 @@ whether you're running as root (system-wide) or a regular user (user-local).
 mvn clean install -pl vatn-webadmin --also-make -DskipTests
 
 # run directly
-java -jar vatn-webadmin/target/vatn-webadmin-1.0-alpha.14.jar
+java -jar vatn-webadmin/target/vatn-webadmin-1.0-alpha.15.jar
 
 # build native binary (requires GraalVM)
 mvn clean package -Pnative -pl vatn-webadmin --also-make -DskipTests
@@ -340,7 +340,7 @@ Build against `vatn-api` only — never depend on `vatn-core` directly:
 <dependency>
     <groupId>dev.vatn</groupId>
     <artifactId>vatn-api</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 

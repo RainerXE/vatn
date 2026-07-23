@@ -187,7 +187,7 @@ public interface VNodeContext {
      * Access to the DAG workflow engine (trigger and inspect workflow runs).
      * Default implementation resolves via {@link #getService(Class)}.
      */
-    @VatnApi(since = "1.0-alpha.14")
+    @VatnApi(since = "1.0-alpha.15")
     default dev.vatn.api.workflow.VDagEngine getDagEngine() {
         return getService(dev.vatn.api.workflow.VDagEngine.class)
                 .orElseThrow(() -> new IllegalStateException(
@@ -198,7 +198,7 @@ public interface VNodeContext {
      * Access to the DAG registry (register DAG definitions and operators).
      * Default implementation resolves via {@link #getService(Class)}.
      */
-    @VatnApi(since = "1.0-alpha.14")
+    @VatnApi(since = "1.0-alpha.15")
     default dev.vatn.api.workflow.VDagRegistry getDagRegistry() {
         return getService(dev.vatn.api.workflow.VDagRegistry.class)
                 .orElseThrow(() -> new IllegalStateException(

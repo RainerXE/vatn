@@ -12,7 +12,7 @@ import dev.vatn.core.VNodeRunner;
  *   mvn package
  *
  * Run:
- *   java -jar target/12-task-queue-1.0-alpha.14.jar
+ *   java -jar target/12-task-queue-1.0-alpha.15.jar
  */
 public class Main {
     public static void main(String[] args) {

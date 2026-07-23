@@ -41,7 +41,7 @@ public class TerminalPhonePlugin implements VNodePlugin {
 
     @Override public String getId()      { return "dev.vatn.plugins.terminalphone"; }
     @Override public String getName()    { return "VATN TerminalPhone Plugin"; }
-    @Override public String getVersion() { return "1.0-alpha.14-preview"; }
+    @Override public String getVersion() { return "1.0-alpha.15-preview"; }
 
     @Override
     public void onInitialize(VNodeContext ctx) {

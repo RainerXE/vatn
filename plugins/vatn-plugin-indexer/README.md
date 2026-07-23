@@ -13,7 +13,7 @@ Pipeline stage that reads a JSON stream, sorts entries by title, and relays the 
 <dependency>
     <groupId>dev.vatn.plugins</groupId>
     <artifactId>vatn-plugin-indexer</artifactId>
-    <version>1.0-alpha.14</version>
+    <version>1.0-alpha.15</version>
 </dependency>
 ```
 
