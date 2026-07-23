@@ -27,6 +27,18 @@ class VPluginManagerImpl implements VPluginManager {
         this.context = context;
     }
 
+    /** Records a plugin as successfully initialized (called by VNodeRunner after onInitialize). */
+    void markRunning(String pluginId) {
+        states.put(pluginId, PluginState.RUNNING);
+        errors.remove(pluginId);
+    }
+
+    /** Records a plugin init failure so getStatuses() surfaces it instead of crashing the node. */
+    void markError(String pluginId, Throwable t) {
+        states.put(pluginId, PluginState.ERROR);
+        errors.put(pluginId, t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName());
+    }
+
     @Override
     public boolean restart(String pluginId) {
         VNodePlugin plugin = findPlugin(pluginId);

@@ -1,0 +1,11 @@
+[
+  {
+    "name": "dev.vatn.plugins.indexer.InMemoryIndexService",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true,
+    "allPublicFields": true,
+    "allDeclaredFields": true
+  }
+]

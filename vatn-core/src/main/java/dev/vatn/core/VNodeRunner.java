@@ -3,8 +3,11 @@ package dev.vatn.core;
 import dev.vatn.api.VNodeContext;
 import dev.vatn.api.VNodePlugin;
 import dev.vatn.api.VatnSecurity;
+import dev.vatn.core.http.ConnectionWatchdog;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
+import io.helidon.webserver.http1.Http1Config;
+import io.helidon.webserver.websocket.WsConfig;
 import io.helidon.webserver.websocket.WsRouting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +26,11 @@ import java.util.function.Supplier;
  */
 public class VNodeRunner {
     private static final Logger logger = LoggerFactory.getLogger(VNodeRunner.class);
+
+    // Plugin lifecycle bounds. A misbehaving plugin (per the security trust model) must never be
+    // able to hang node boot or shutdown, so init and shutdown are both time-boxed and interruptible.
+    private static final long PLUGIN_INIT_TIMEOUT_MS = Long.getLong("vatn.plugin.init_timeout_ms", 15_000);
+    private static final long PLUGIN_SHUTDOWN_TIMEOUT_MS = Long.getLong("vatn.plugin.shutdown_timeout_ms", 10_000);
     
     private final int port;
     private final java.nio.file.Path identityPath;
@@ -40,6 +48,7 @@ public class VNodeRunner {
     private dev.vatn.api.VNodeIdentity identity;
     private dev.vatn.api.VMessaging messagingOverride;
     private WebServer server;
+    private ConnectionWatchdog watchdog;
     private UdpDiscoveryTransport udpDiscovery;
     private final long startTime = System.currentTimeMillis();
     private volatile boolean started = false;
@@ -271,6 +280,14 @@ public class VNodeRunner {
         context.registerService(dev.vatn.api.workflow.VDagScheduler.class, dagScheduler);
         dagScheduler.start();
 
+        // 1.2.1 Workload Registry & Core Providers
+        dev.vatn.core.admin.VWorkloadRegistryImpl workloadRegistry = new dev.vatn.core.admin.VWorkloadRegistryImpl();
+        context.registerService(dev.vatn.api.admin.VWorkloadRegistry.class, workloadRegistry);
+        
+        LocalProcessService processService = (LocalProcessService) context.getService(dev.vatn.api.VProcessService.class).get();
+        workloadRegistry.registerProvider(new dev.vatn.core.admin.ProcessWorkloadProvider(processService));
+        workloadRegistry.registerProvider(new dev.vatn.core.admin.DagWorkloadProvider(dagEngine));
+
         // 1.3 Tracing — OTLP when VATN_OTLP_ENDPOINT is set, noop otherwise
         String otlpEndpoint = System.getenv("VATN_OTLP_ENDPOINT");
         if (otlpEndpoint != null && !otlpEndpoint.isBlank()) {
@@ -290,13 +307,32 @@ public class VNodeRunner {
             new dev.vatn.core.rpc.VRpcServiceImpl(context, context.getMessaging());
         context.registerService(dev.vatn.api.VRpcService.class, rpcService);
 
+        VPluginManagerImpl pluginManager = new VPluginManagerImpl(hostedPlugins, context);
+
         for (VNodePlugin plugin : hostedPlugins) {
-            logger.info("Initializing plugin: {} ({})", plugin.getName(), plugin.getId());
-            ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
-                .run(() -> plugin.onInitialize(context));
+            String pluginId = safePluginId(plugin);
+            logger.info("Initializing plugin: {} ({})", safePluginName(plugin), pluginId);
+            Thread initThread = Thread.ofVirtual().name("vatn-plugin-init-" + pluginId)
+                .start(() -> ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, pluginId)
+                    .run(() -> plugin.onInitialize(context)));
+            try {
+                initThread.join(PLUGIN_INIT_TIMEOUT_MS);
+                if (initThread.isAlive()) {
+                    initThread.interrupt();
+                    throw new java.util.concurrent.TimeoutException(
+                        "Plugin initialization exceeded " + PLUGIN_INIT_TIMEOUT_MS + " ms");
+                }
+                pluginManager.markRunning(pluginId);
+            } catch (java.util.concurrent.TimeoutException e) {
+                pluginManager.markError(pluginId, new RuntimeException(
+                    "Plugin initialization timed out after " + PLUGIN_INIT_TIMEOUT_MS + " ms"));
+                logger.error("Plugin {} initialization timed out — isolated, node continues", pluginId, e);
+            } catch (Exception e) {
+                pluginManager.markError(pluginId, e);
+                logger.error("Plugin {} initialization failed — isolated, node continues", pluginId, e);
+            }
         }
-        context.registerService(dev.vatn.api.VPluginManager.class,
-                new VPluginManagerImpl(hostedPlugins, context));
+        context.registerService(dev.vatn.api.VPluginManager.class, pluginManager);
 
         // 1.5 Collect HTTP services registered by plugins via context.register()
         java.util.List<dev.vatn.api.VHttpFilter> httpFilters = context.getFilters();
@@ -425,9 +461,20 @@ public class VNodeRunner {
             routing.register(reg.path, reg.service);
         }
         
+        watchdog = new ConnectionWatchdog();
+        watchdog.start();
+        var watchdogHttp1 = Http1Config.builder()
+                .addReceiveListener(watchdog)
+                .build();
         var webServerBuilder = WebServer.builder()
                 .port(port)
-                .routing(routing);
+                .routing(routing)
+                .maxPayloadSize(Long.getLong("vatn.http.max_payload_bytes", 16 * 1024 * 1024))
+                .idleConnectionTimeout(java.time.Duration.ofMillis(
+                        Long.getLong("vatn.http.idle_timeout_ms", 10_000)))
+                .protocolsDiscoverServices(false)
+                .addProtocol(watchdogHttp1)
+                .addProtocol(WsConfig.create());
 
         for (WsRouting.Builder ws : webSocketRoutings) {
             webServerBuilder.addRouting(ws);
@@ -496,12 +543,16 @@ public class VNodeRunner {
         if (server != null) {
             server.stop();
         }
+        if (watchdog != null) {
+            watchdog.stop();
+        }
         if (context != null) {
             context.getService(dev.vatn.api.workflow.VDagScheduler.class)
                 .ifPresent(dev.vatn.api.workflow.VDagScheduler::stop);
             for (Class<? extends dev.vatn.api.VService> svcType : java.util.List.of(
                     dev.vatn.api.VClockService.class,
-                    dev.vatn.api.workflow.VJobQueue.class)) {
+                    dev.vatn.api.workflow.VJobQueue.class,
+                    dev.vatn.api.workflow.VQueueService.class)) {
                 context.getService(svcType).ifPresent(svc -> {
                     if (svc instanceof AutoCloseable) {
                         try { ((AutoCloseable) svc).close(); }
@@ -515,8 +566,31 @@ public class VNodeRunner {
             runtime.stop();
         }
         for (VNodePlugin plugin : hostedPlugins) {
-            ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, plugin.getId())
-                .run(() -> plugin.onShutdown());
+            String pluginId = safePluginId(plugin);
+            Thread shutdownThread = Thread.ofVirtual().name("vatn-plugin-shutdown-" + pluginId)
+                .start(() -> ScopedValue.where(VatnSecurity.CURRENT_PLUGIN_ID, pluginId)
+                    .run(() -> plugin.onShutdown()));
+            try {
+                shutdownThread.join(PLUGIN_SHUTDOWN_TIMEOUT_MS);
+                if (shutdownThread.isAlive()) {
+                    shutdownThread.interrupt();
+                    logger.warn("Plugin {} onShutdown did not complete within {} ms — interrupting",
+                        pluginId, PLUGIN_SHUTDOWN_TIMEOUT_MS);
+                }
+            } catch (InterruptedException ie) {
+                shutdownThread.interrupt();
+                Thread.currentThread().interrupt();
+            }
         }
+    }
+
+    private static String safePluginId(VNodePlugin plugin) {
+        String id = plugin == null ? null : plugin.getId();
+        return (id == null || id.isBlank()) ? "<unknown>" : id;
+    }
+
+    private static String safePluginName(VNodePlugin plugin) {
+        String name = plugin == null ? null : plugin.getName();
+        return (name == null || name.isBlank()) ? "<unknown>" : name;
     }
 }

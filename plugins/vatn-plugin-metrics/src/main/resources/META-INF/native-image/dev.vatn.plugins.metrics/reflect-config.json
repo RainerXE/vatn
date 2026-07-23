@@ -1,0 +1,7 @@
+[
+  {
+    "name": "dev.vatn.plugins.metrics.MetricsServiceImpl",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  }
+]

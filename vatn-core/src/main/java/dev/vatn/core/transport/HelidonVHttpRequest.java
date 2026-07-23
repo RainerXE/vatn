@@ -68,12 +68,20 @@ public class HelidonVHttpRequest implements VHttpRequest {
 
     @Override
     public String getBody() {
-        return req.content().as(String.class);
+        try {
+            return req.content().as(String.class);
+        } catch (IllegalStateException e) {
+            return "";
+        }
     }
 
     @Override
     public byte[] getBodyBytes() {
-        return req.content().as(byte[].class);
+        try {
+            return req.content().as(byte[].class);
+        } catch (IllegalStateException e) {
+            return new byte[0];
+        }
     }
 
     @Override

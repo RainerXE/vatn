@@ -1,5 +1,11 @@
 target/
+.jqwik-database
+dependency-reduced-pom.xml
 # plans/ is a symlink into the central private plans repo — match dir, file, and symlink
 /plans
 .claude/
+
+# IDE files
+.idea/
+AGENTS.md
 agents.md

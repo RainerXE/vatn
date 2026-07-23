@@ -1,0 +1,101 @@
+[
+  {
+    "name": "dev.vatn.plugins.containers.GenericContainerManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.DistroboxManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.WebTerminalHandler",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainersWorkloadProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ToolboxManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.OsDetector",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerTemplate",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.JsonTemplateStore",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerCreator",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainersPlugin$CreateRequest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ResourceProfile",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.JsonResourceProfileStore",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.HealthProbe",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ServiceDependency",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.StackService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerStack",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.DeploymentRun",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.DeploymentRun$ServiceResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.StackDeployer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "dev.vatn.plugins.containers.ContainerStackStore",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  }
+]

@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.14</version>
+    </parent>
+
+    <artifactId>vatn-plugin-wasm</artifactId>
+    <packaging>jar</packaging>
+
+    <name>VATN Plugin — WASM</name>
+    <description>
+        Sandboxed WebAssembly execution for VATN nodes.
+        Default backend: Chicory (pure-Java, zero-JNI, Maven Central).
+        Alternative backends selectable via Maven profile: endive (Bytecode Alliance fork of
+        Chicory with Cranelift native-compile roadmap) or GraalWASM (peak perf on GraalVM JDK).
+        All backends implement the same VWasmRuntime SPI — callers never change.
+    </description>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════════
+     WASM RUNTIME BACKEND SELECTION
+    ═══════════════════════════════════════════════════════════════════════
+
+    Active backend is controlled by the Maven profile (default: chicory).
+    All backends use the SAME code — only the JAR on the classpath changes.
+
+    Profile       Activate with                  Backend
+    ──────────    ─────────────────────────────  ──────────────────────────
+    chicory*      (default / -P chicory)          com.dylibso.chicory  1.7.5
+    endive        -P endive                       run.endive            see <endive.version>
+    graalwasm     -P graalwasm + GraalVM JDK      org.graalvm.sdk + polyglot
+
+    * Endive preserves the com.dylibso.chicory.* package names (it is a fork),
+      so ChicoryWasmModule/ChicoryWasmRuntime compile and run against BOTH JARs.
+      If Endive ever renames its packages, add an EndiveWasmRuntime adapter class.
+
+    * GraalWASM requires a separate GraalWasmRuntime implementation (stub provided
+      as a comment in WasmPlugin.java).  Enable when running on GraalVM JDK 25+.
+
+    UPGRADING
+    ─────────
+    Chicory: change <chicory.version> in vatn-plugins-parent/pom.xml.
+    Endive:  change <endive.version> in this file.
+    Both:    run `mvn compile -pl vatn-plugin-wasm` to verify.
+    ═══════════════════════════════════════════════════════════════════════
+    -->
+
+    <properties>
+        <!--
+          Endive version — managed here, separate from Chicory.
+          Check https://endive.run/ or https://central.sonatype.com/search?q=run.endive
+          for the latest release.
+        -->
+        <endive.version>1.0.0</endive.version>
+    </properties>
+
+    <dependencies>
+        <!-- VATN API — provided at runtime by the node -->
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Jackson for HTTP endpoint JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- JMH — benchmark harness (test scope only) -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>1.37</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>1.37</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <!-- ── Chicory (default) ─────────────────────────────────────────────── -->
+        <profile>
+            <id>chicory</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property><name>!wasm.runtime</name></property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.dylibso.chicory</groupId>
+                    <artifactId>runtime</artifactId>
+                    <version>${chicory.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.dylibso.chicory</groupId>
+                    <artifactId>wasi</artifactId>
+                    <version>${chicory.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- ── Endive (Bytecode Alliance fork of Chicory) ───────────────────── -->
+        <!--
+          Endive is a fork of Chicory under the Bytecode Alliance.
+          It preserves the com.dylibso.chicory.* package names for API compatibility.
+          Roadmap: Redline compiler (Cranelift → native via Panama FFM on Java 25+).
+
+          Activate: mvn package -P endive
+          To test: mvn test -P endive -Dtest=WasmRuntimeTest
+
+          Check Maven Central for the latest version:
+            https://central.sonatype.com/search?q=run.endive
+
+          If Endive is not yet on Maven Central, add the JitPack repository:
+            <repository>
+              <id>jitpack.io</id>
+              <url>https://jitpack.io</url>
+            </repository>
+          and use:
+            <groupId>com.github.bytecodealliance</groupId>
+            <artifactId>endive</artifactId>
+            <version>COMMIT_OR_TAG</version>
+        -->
+        <profile>
+            <id>endive</id>
+            <activation>
+                <property><name>wasm.runtime</name><value>endive</value></property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>run.endive</groupId>
+                    <artifactId>runtime</artifactId>
+                    <version>${endive.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>run.endive</groupId>
+                    <artifactId>wasi</artifactId>
+                    <version>${endive.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- ── GraalWASM (GraalVM JDK only, peak performance) ──────────────── -->
+        <!--
+          GraalWASM compiles WASM to native machine code via Graal JIT.
+          Requires GraalVM JDK 25+ (falls back to interpreter on OpenJDK).
+          Needs a separate GraalWasmRuntime implementation — see WasmPlugin.java.
+
+          Activate: mvn package -P graalwasm
+          Requires: sdk use java 25.0.2-graal (via SDKMAN) or equivalent
+        -->
+        <profile>
+            <id>graalwasm</id>
+            <activation>
+                <property><name>wasm.runtime</name><value>graalwasm</value></property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.graalvm.sdk</groupId>
+                    <artifactId>graal-sdk</artifactId>
+                    <version>25.0.0</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.polyglot</groupId>
+                    <artifactId>wasm-community</artifactId>
+                    <version>25.0.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

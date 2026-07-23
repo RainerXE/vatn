@@ -106,14 +106,21 @@ public class DatabaseManager implements VPersistenceService, AutoCloseable {
         } catch (SQLException e) {
             logger.debug("[DB] WAL checkpoint on close failed: {}", e.getMessage());
         }
-        // Explicitly remove any lingering WAL/SHM sidecar files. SQLite normally
-        // removes them when journal_mode switches to DELETE, but on macOS the
-        // SQLite JDBC driver can briefly recreate them — deleting here guarantees
-        // they are gone before JUnit's @TempDir cleanup scans the directory.
+        // macOS can briefly retain WAL/SHM file locks after Connection.close(),
+        // so retry deletion with a short delay if the first attempt fails.
         if (url.startsWith("jdbc:sqlite:")) {
             String path = url.substring("jdbc:sqlite:".length());
-            try { java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(path + "-wal")); } catch (java.io.IOException ignored) {}
-            try { java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(path + "-shm")); } catch (java.io.IOException ignored) {}
+            java.nio.file.Path walPath = java.nio.file.Paths.get(path + "-wal");
+            java.nio.file.Path shmPath = java.nio.file.Paths.get(path + "-shm");
+            for (int attempt = 0; attempt < 5; attempt++) {
+                boolean allGone = true;
+                try { if (java.nio.file.Files.exists(walPath)) { java.nio.file.Files.delete(walPath); } }
+                catch (java.io.IOException e) { allGone = false; }
+                try { if (java.nio.file.Files.exists(shmPath)) { java.nio.file.Files.delete(shmPath); } }
+                catch (java.io.IOException e) { allGone = false; }
+                if (allGone) break;
+                try { Thread.sleep(20); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+            }
         }
     }
 }

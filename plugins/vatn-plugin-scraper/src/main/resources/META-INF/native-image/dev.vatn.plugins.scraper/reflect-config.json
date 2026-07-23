@@ -1,0 +1,12 @@
+[
+  {
+    "name": "dev.vatn.plugins.scraper.JsoupScraperService",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "dev.vatn.plugins.scraper.ScrapeResult",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  }
+]

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.14</version>
+    </parent>
+    <artifactId>vatn-plugin-swagger</artifactId>
+    <name>VATN Plugin — Swagger / OpenAPI UI</name>
+    <description>Serves an OpenAPI 3.0 spec at /api-docs and Swagger UI at /docs. Zero-dep — bring your own spec.</description>
+    <dependencies>
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

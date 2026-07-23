@@ -7,6 +7,7 @@ import dev.vatn.cli.commands.LogsCommand;
 import dev.vatn.cli.commands.InfoCommand;
 import dev.vatn.cli.commands.TestCommand;
 import dev.vatn.cli.commands.OipcBenchmarkCommand;
+import dev.vatn.cli.commands.InventoryCommand;
 import dev.vatn.api.cli.VCliCommand;
 import dev.vatn.core.cli.CliCommandLoader;
 import picocli.CommandLine;
@@ -16,16 +17,17 @@ import picocli.CommandLine.Option;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
-@Command(name = "vatn", 
-         mixinStandardHelpOptions = true, 
+@Command(name = "vatn",
+         mixinStandardHelpOptions = true,
          version = "VATN Runtime 1.0.0",
-         description = "The Federated OS for Personal AI - Standalone Runtime CLI.",
+         description = "VATN — Runtime for Personal Services.",
          subcommands = {
              RunCommand.class,
              InitCommand.class,
              RegistryCommand.class,
              LogsCommand.class,
              InfoCommand.class,
+             InventoryCommand.class,
              TestCommand.class,
              OipcBenchmarkCommand.class
          })

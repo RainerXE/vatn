@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * A CLI subcommand contributed by a plugin (e.g. {@code vatn devenv …}).
  *
- * <p>Discovered by a host CLI (vatn, frejay, …) via {@link java.util.ServiceLoader} over the
+ * <p>Discovered by a host CLI (vatn, …) via {@link java.util.ServiceLoader} over the
  * plugin classpath, then mounted as a subcommand. This is the portable, framework-neutral
  * contract — the host adapts it to its CLI library (picocli, etc.) and supplies a
  * {@link VCliContext} matching the command's declared context. Plugins needing rich argument

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.14</version>
+    </parent>
+
+    <artifactId>vatn-plugin-comm</artifactId>
+    <name>VATN Communication Sidecar Plugin</name>
+    <description>
+        Unified outbound/inbound messaging hub for Telegram, Signal, and RCS.
+        Each channel runs as a VAgent with optional active-passive failover.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +76,312 @@ public class OipcMessagingTest {
             assertTrue(success, "Did not receive routed payload from V3 binary message");
             assertEquals(testPayload, receivedPayload.get());
         }
+    }
+
+    @Test
+    public void testV213GreetingThenHello() throws Exception {
+        OipcMessagingTransport transport = new OipcMessagingTransport();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> received = new AtomicReference<>();
+        transport.subscribe("binary.ingress", p -> { received.set(new String(p)); latch.countDown(); });
+
+        try (SocketChannel client = connectToTransport(transport)) {
+            byte[] greeting = buildGreeting("cli-1", new byte[24], 0x02);
+            client.write(ByteBuffer.wrap(greeting));
+
+            sendHelloThenData(client, "greetingData");
+
+            assertTrue(latch.await(2, TimeUnit.SECONDS),
+                "Did not receive routed payload after v2.13 Greeting + HELLO");
+            assertEquals("greetingData", received.get());
+        }
+    }
+
+    @Test
+    public void testAuthTokenRejected() throws Exception {
+        String prevRequire = System.getProperty("vatn.ipc.require_auth_token");
+        String prevToken = System.getProperty("vatn.ipc.auth_token");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.require_auth_token", "true");
+        System.setProperty("vatn.ipc.auth_token", "secret123");
+        System.setProperty("vatn.ipc.force_tcp", "true"); // auth only enforced on non-UDS
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            transport.subscribe("binary.ingress", p -> latch.countDown());
+
+            try (SocketChannel client = connectToTransport(transport)) {
+                byte[] wrongToken = new byte[24];
+                byte[] wrong = "wrong-token".getBytes(StandardCharsets.UTF_8);
+                System.arraycopy(wrong, 0, wrongToken, 0, wrong.length);
+
+                byte[] greeting = buildGreeting("cli-1", wrongToken, 0x02);
+                client.write(ByteBuffer.wrap(greeting));
+
+                sendHelloThenData(client, "shouldNotArrive");
+
+                assertFalse(latch.await(1, TimeUnit.SECONDS),
+                    "Payload must NOT be received when auth_token is wrong");
+            }
+        } finally {
+            restoreProp("vatn.ipc.require_auth_token", prevRequire);
+            restoreProp("vatn.ipc.auth_token", prevToken);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
+    public void testHttpConnectTunnel() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<String> received = new AtomicReference<>();
+            transport.subscribe("binary.ingress", p -> { received.set(new String(p)); latch.countDown(); });
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                int port = transport.getConnectionPort();
+                String connectReq = "CONNECT 127.0.0.1:" + port + " HTTP/1.1\r\n"
+                    + "Host: 127.0.0.1:" + port + "\r\n\r\n";
+                client.getOutputStream().write(connectReq.getBytes(StandardCharsets.US_ASCII));
+
+                // Read the 200 response line.
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
+                String statusLine = br.readLine();
+                assertNotNull(statusLine, "Expected an HTTP response line");
+                assertTrue(statusLine.contains("200 Connection established"),
+                    "Expected 200 Connection established, got: " + statusLine);
+
+                // The socket is now a transparent pipe — send a normal 'O' + V3 HELLO + data frame.
+                sendHelloThenData(client.getOutputStream(), "tunnelData");
+
+                assertTrue(latch.await(2, TimeUnit.SECONDS),
+                    "Did not receive routed payload over HTTP CONNECT tunnel");
+                assertEquals("tunnelData", received.get());
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
+    public void testHttpConnectDenied() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevAllowlist = System.getProperty("vatn.ipc.connect_allowlist");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.connect_allowlist", "10.0.0.1:443"); // different host
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            transport.subscribe("binary.ingress", p -> latch.countDown());
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                int port = transport.getConnectionPort();
+                String connectReq = "CONNECT 127.0.0.1:" + port + " HTTP/1.1\r\n"
+                    + "Host: 127.0.0.1:" + port + "\r\n\r\n";
+                client.getOutputStream().write(connectReq.getBytes(StandardCharsets.US_ASCII));
+
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
+                String statusLine = br.readLine();
+                assertNotNull(statusLine, "Expected an HTTP response line");
+                assertTrue(statusLine.contains("403 Forbidden"),
+                    "Expected 403 Forbidden, got: " + statusLine);
+
+                // Connection is closed on deny — no payload should arrive.
+                assertFalse(latch.await(1, TimeUnit.SECONDS),
+                    "Payload must NOT be received when CONNECT is denied");
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.connect_allowlist", prevAllowlist);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
+    public void testHttpConnectHeaderTooLarge() throws Exception {
+        String prevEnabled = System.getProperty("vatn.ipc.http_connect_enabled");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.http_connect_enabled", "true");
+        System.setProperty("vatn.ipc.force_tcp", "true");
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            transport.subscribe("binary.ingress", p -> latch.countDown());
+
+            try (java.net.Socket client = rawSocket(transport)) {
+                // A CONNECT request whose header never terminates (no blank line) and vastly
+                // exceeds the 8192-byte cap → server must close the connection.
+                int port = transport.getConnectionPort();
+                StringBuilder garbage = new StringBuilder();
+                garbage.append("CONNECT 127.0.0.1:").append(port).append(" HTTP/1.1\r\n");
+                while (garbage.length() < 16384) {
+                    garbage.append("X-Garbage-").append(garbage.length())
+                           .append(": ").append("padding-padding-padding\r\n");
+                }
+                // NOTE: intentionally NOT terminating with a blank line.
+                client.getOutputStream().write(garbage.toString().getBytes(StandardCharsets.US_ASCII));
+                client.getOutputStream().flush();
+
+                // Connection should be closed by the server — no 200, no payload.
+                assertFalse(latch.await(1, TimeUnit.SECONDS),
+                    "Payload must NOT be received when CONNECT header exceeds the size cap");
+
+                // The server should have closed the socket. On a hard close this surfaces as EOF
+                // (read == -1) or a connection reset; either proves the connection is gone.
+                client.setSoTimeout(1000);
+                boolean closed;
+                try {
+                    int eof = client.getInputStream().read();
+                    closed = (eof == -1);
+                } catch (java.net.SocketException e) {
+                    closed = true; // connection reset == server closed it
+                }
+                assertTrue(closed,
+                    "Server should have closed the connection on over-limit CONNECT header");
+            }
+        } finally {
+            restoreProp("vatn.ipc.http_connect_enabled", prevEnabled);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    @Test
+    public void testV213IdentitySurfaced() throws Exception {
+        String prevRequire = System.getProperty("vatn.ipc.require_auth_token");
+        String prevToken = System.getProperty("vatn.ipc.auth_token");
+        String prevForceTcp = System.getProperty("vatn.ipc.force_tcp");
+        System.setProperty("vatn.ipc.require_auth_token", "true");
+        System.setProperty("vatn.ipc.auth_token", "secret123");
+        System.setProperty("vatn.ipc.force_tcp", "true"); // auth only enforced on non-UDS
+        try {
+            OipcMessagingTransport transport = new OipcMessagingTransport();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<byte[]> seenClientId = new AtomicReference<>();
+            AtomicReference<byte[]> seenAuthToken = new AtomicReference<>();
+            transport.subscribe("binary.ingress", p -> {
+                seenClientId.set(dev.vatn.api.VatnSecurity.CURRENT_CLIENT_ID.get());
+                seenAuthToken.set(dev.vatn.api.VatnSecurity.CURRENT_AUTH_TOKEN.get());
+                latch.countDown();
+            });
+
+            try (SocketChannel client = connectToTransport(transport)) {
+                byte[] expectedClientId = new byte[16];
+                byte[] cidSrc = "cli-xyz".getBytes(StandardCharsets.UTF_8);
+                System.arraycopy(cidSrc, 0, expectedClientId, 0, Math.min(cidSrc.length, 16));
+                byte[] greeting = OipcGreeting.build("cli-xyz",
+                    OipcGreeting.tokenBytes("secret123"), 0x02);
+                client.write(ByteBuffer.wrap(greeting));
+
+                sendHelloThenData(client, "identityData");
+
+                assertTrue(latch.await(2, TimeUnit.SECONDS),
+                    "Did not receive routed payload for v2.13 identity test");
+                assertArrayEquals(expectedClientId, seenClientId.get(),
+                    "CURRENT_CLIENT_ID must equal the Greeting client_id (16-byte, padded)");
+                assertArrayEquals(OipcGreeting.tokenBytes("secret123"), seenAuthToken.get(),
+                    "CURRENT_AUTH_TOKEN must equal the Greeting auth_token");
+            }
+        } finally {
+            restoreProp("vatn.ipc.require_auth_token", prevRequire);
+            restoreProp("vatn.ipc.auth_token", prevToken);
+            restoreProp("vatn.ipc.force_tcp", prevForceTcp);
+        }
+    }
+
+    private static java.net.Socket rawSocket(OipcMessagingTransport transport) throws Exception {
+        java.net.Socket s = new java.net.Socket();
+        s.connect(new InetSocketAddress("127.0.0.1", transport.getConnectionPort()));
+        return s;
+    }
+
+    private static void restoreProp(String key, String value) {
+        if (value == null) System.clearProperty(key);
+        else System.setProperty(key, value);
+    }
+
+    private byte[] buildGreeting(String clientId, byte[] token, int transport) {
+        ByteBuffer bb = ByteBuffer.allocate(64).order(ByteOrder.LITTLE_ENDIAN);
+        bb.put("OIPC".getBytes(StandardCharsets.US_ASCII)); // 0..3 magic
+        bb.put((byte) 2);                                    // 4 ver_major
+        bb.put((byte) 12);                                   // 5 ver_minor
+        bb.putShort((short) 0);                              // 6..7 flags u16 LE
+        bb.putInt(0);                                        // 8..11 codec_pref u32 LE
+        bb.put((byte) 0);                                    // 12 mode_flags
+        bb.put((byte) 0);                                    // 13 channel_mode
+        bb.put((byte) transport);                            // 14 transport
+        bb.putInt(0);                                        // 15..18 session_hint u32 LE
+        byte[] cid = new byte[16];
+        byte[] cidSrc = clientId.getBytes(StandardCharsets.UTF_8);
+        System.arraycopy(cidSrc, 0, cid, 0, Math.min(cidSrc.length, 16));
+        bb.put(cid);                                         // 19..34 client_id
+        byte[] tok = new byte[24];
+        System.arraycopy(token, 0, tok, 0, Math.min(token.length, 24));
+        bb.put(tok);                                         // 35..58 auth_token
+        bb.put(new byte[5]);                                 // 59..63 reserved
+        return bb.array();
+    }
+
+    private void sendHelloThenData(SocketChannel client, String payload) throws Exception {
+        byte[] payloadData = payload.getBytes(StandardCharsets.UTF_8);
+        byte[] nodeIdBytes = "test-client".getBytes(StandardCharsets.UTF_8);
+
+        int helloLen = 3 + nodeIdBytes.length;
+        ByteBuffer hello = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + helloLen)
+            .order(ByteOrder.BIG_ENDIAN);
+        hello.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x22)
+             .putInt(helloLen).putInt(123).putInt(0)
+             .put((byte) 0x05).put((byte) 2).put((byte) 12)
+             .put(nodeIdBytes);
+        client.write(hello.flip());
+
+        ByteBuffer frame = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + payloadData.length)
+            .order(ByteOrder.BIG_ENDIAN);
+        frame.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x02)
+             .putInt(payloadData.length).putInt(0).putInt(0)
+             .put(payloadData);
+        client.write(frame.flip());
+    }
+
+    private void sendHelloThenData(java.io.OutputStream out, String payload) throws Exception {
+        byte[] payloadData = payload.getBytes(StandardCharsets.UTF_8);
+        byte[] nodeIdBytes = "test-client".getBytes(StandardCharsets.UTF_8);
+
+        int helloLen = 3 + nodeIdBytes.length;
+        ByteBuffer hello = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + helloLen)
+            .order(ByteOrder.BIG_ENDIAN);
+        hello.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x22)
+             .putInt(helloLen).putInt(123).putInt(0)
+             .put((byte) 0x05).put((byte) 2).put((byte) 12)
+             .put(nodeIdBytes);
+        out.write(hello.array());
+        out.flush();
+
+        ByteBuffer frame = ByteBuffer.allocate(OipcMessagingTransport.V3_HEADER_SIZE + payloadData.length)
+            .order(ByteOrder.BIG_ENDIAN);
+        frame.put("OIPC".getBytes())
+             .put((byte) 3).put((byte) 0x02)
+             .putInt(payloadData.length).putInt(0).putInt(0)
+             .put(payloadData);
+        out.write(frame.array());
+        out.flush();
     }
 
     private SocketChannel connectToTransport(OipcMessagingTransport transport) throws Exception {

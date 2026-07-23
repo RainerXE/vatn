@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>dev.vatn.plugins</groupId>
+        <artifactId>vatn-plugins-parent</artifactId>
+        <version>1.0-alpha.14</version>
+    </parent>
+    <artifactId>vatn-plugin-s3</artifactId>
+    <name>VATN Plugin — S3 Object Storage</name>
+    <description>AWS S3 / S3-compatible object storage (MinIO, R2, Spaces). Upload, download, delete, presign.</description>
+    <dependencies>
+        <dependency>
+            <groupId>dev.vatn</groupId>
+            <artifactId>vatn-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>
