@@ -27,6 +27,8 @@ public class TestCommand implements Callable<Integer> {
     public Integer call() throws Exception {
         if (!manifestFile.exists()) {
             System.err.println("Error: Manifest file not found at " + manifestFile.getAbsolutePath());
+            System.err.println("       Run 'vatn init' to create a project, or cd to the project directory.");
+            System.err.println("       Use 'vatn test -f <path>' to specify a custom manifest path.");
             return 1;
         }
 

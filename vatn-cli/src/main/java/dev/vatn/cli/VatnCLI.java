@@ -8,6 +8,7 @@ import dev.vatn.cli.commands.InfoCommand;
 import dev.vatn.cli.commands.TestCommand;
 import dev.vatn.cli.commands.OipcBenchmarkCommand;
 import dev.vatn.cli.commands.InventoryCommand;
+import dev.vatn.cli.commands.SelfUpdateCommand;
 import dev.vatn.api.cli.VCliCommand;
 import dev.vatn.core.cli.CliCommandLoader;
 import picocli.CommandLine;
@@ -19,7 +20,7 @@ import java.util.concurrent.Callable;
 
 @Command(name = "vatn",
          mixinStandardHelpOptions = true,
-         version = "VATN Runtime 1.0.0",
+         versionProvider = VatnVersionProvider.class,
          description = "VATN — Runtime for Personal Services.",
          subcommands = {
              RunCommand.class,
@@ -29,6 +30,7 @@ import java.util.concurrent.Callable;
              InfoCommand.class,
              InventoryCommand.class,
              TestCommand.class,
+             SelfUpdateCommand.class,
              OipcBenchmarkCommand.class
          })
 public class VatnCLI implements Callable<Integer> {

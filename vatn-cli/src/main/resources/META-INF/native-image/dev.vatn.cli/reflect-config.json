@@ -9,6 +9,11 @@
     "allPublicFields": true
   },
   {
+    "name": "dev.vatn.cli.VatnVersionProvider",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
     "name": "dev.vatn.cli.commands.RunCommand",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
@@ -55,6 +60,15 @@
   },
   {
     "name": "dev.vatn.cli.commands.TestCommand",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true,
+    "allPublicFields": true
+  },
+  {
+    "name": "dev.vatn.cli.commands.SelfUpdateCommand",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,

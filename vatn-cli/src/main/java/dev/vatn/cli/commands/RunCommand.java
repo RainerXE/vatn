@@ -26,6 +26,7 @@ public class RunCommand implements Callable<Integer> {
     public Integer call() throws Exception {
         if (!manifestFile.exists()) {
             System.err.println("Error: Manifest file not found at " + manifestFile.getAbsolutePath());
+            System.err.println("       Run 'vatn init' to create a project, then 'vatn run <manifest>' from that directory.");
             return 1;
         }
 
