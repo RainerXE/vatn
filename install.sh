@@ -363,26 +363,38 @@ if [ -d ".git" ]; then
 fi
 step "Build"
 HAS_WEBADMIN=false
-if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then
-  HAS_WEBADMIN=true
-fi
-if ! mvn package -T "$THREADS" -pl vatn-cli $( $HAS_WEBADMIN && echo ",vatn-webadmin" ) -am -DskipTests -q; then
-  die "Build failed"
-fi
+if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then HAS_WEBADMIN=true; fi
 INSTALLED_PLUGINS=()
 if [ -d "$VATN_HOME/plugins" ]; then
   for jar in "$VATN_HOME/plugins"/vatn-plugin-*.jar; do
     [ -f "$jar" ] || continue; name=$(basename "$jar" .jar); INSTALLED_PLUGINS+=("$name")
   done
 fi
-for plugin in "${INSTALLED_PLUGINS[@]}"; do
-  printf "  %s … " "$plugin"
-  if mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then printf "OK\n"; else printf "failed\n"; fi
-done
+CHANGED=$( { git diff --name-only ORIG_HEAD HEAD 2>/dev/null; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
+NEEDS_BUILD=false; BUILD_MODULES=""
+if [ -z "$CHANGED" ]; then
+  info "No source changes — nothing to build."
+elif echo "$CHANGED" | grep -qE '^(vatn-api/|vatn-core/|pom\.xml$)'; then
+  NEEDS_BUILD=true; BUILD_MODULES="vatn-cli"
+  $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+  info "vatn-api or vatn-core changed — rebuilding all modules"
+else
+  echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-cli"; NEEDS_BUILD=true; }
+  $HAS_WEBADMIN && echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"; NEEDS_BUILD=true; }
+  for plugin in "${INSTALLED_PLUGINS[@]}"; do
+    echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null && { BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"; NEEDS_BUILD=true; }
+  done
+fi
+if $NEEDS_BUILD; then
+  BUILD_MODULES="${BUILD_MODULES#,}"
+  info "Building: $BUILD_MODULES"
+  mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
+  ok "Build complete"
+fi
 step "Install"
 mkdir -p "$VATN_HOME"/{lib,plugins,bin}
 CLI_JAR=$(find vatn-cli/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
-[ -n "$CLI_JAR" ] && cp "$CLI_JAR" "$VATN_HOME/lib/vatn-cli.jar" && ok "vatn-cli.jar" || warn "vatn-cli.jar not found"
+[ -n "$CLI_JAR" ] && cp "$CLI_JAR" "$VATN_HOME/lib/vatn-cli.jar" && ok "vatn-cli.jar"
 if $HAS_WEBADMIN; then
   WEB_JAR=$(find vatn-webadmin/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
   [ -n "$WEB_JAR" ] && cp "$WEB_JAR" "$VATN_HOME/lib/vatn-webadmin.jar" && ok "vatn-webadmin.jar"

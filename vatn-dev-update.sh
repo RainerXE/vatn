@@ -70,24 +70,11 @@ if [ -d ".git" ]; then
   info "At commit: $CURRENT_HASH"
 fi
 
-# ── build ─────────────────────────────────────────────────────────────────────
+# ── detect changed modules ────────────────────────────────────────────────────
 step "Build"
 
-# Detect which parts are installed
 HAS_WEBADMIN=false
-if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then
-  HAS_WEBADMIN=true
-fi
-
-BUILD_MODULES="vatn-cli"
-$HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
-
-info "Building: $BUILD_MODULES"
-# Only build vatn-cli + webadmin centrally; plugins built individually below
-if ! mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q; then
-  die "Build failed for modules: $BUILD_MODULES"
-fi
-ok "Modules built: $BUILD_MODULES"
+[ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ] && HAS_WEBADMIN=true
 
 INSTALLED_PLUGINS=()
 if [ -d "$VATN_HOME/plugins" ]; then
@@ -98,16 +85,41 @@ if [ -d "$VATN_HOME/plugins" ]; then
   done
 fi
 
-if [ ${#INSTALLED_PLUGINS[@]} -gt 0 ]; then
-  info "Rebuilding ${#INSTALLED_PLUGINS[@]} installed plugin(s) …"
+# Files changed since last pull + local modifications (filter to source only)
+CHANGED=$( { git diff --name-only ORIG_HEAD HEAD 2>/dev/null; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
+
+NEEDS_BUILD=false
+BUILD_MODULES=""
+SKIP_BUILD=false
+
+if [ -z "$CHANGED" ]; then
+  info "No source changes — nothing to build."
+  SKIP_BUILD=true
+elif echo "$CHANGED" | grep -qE '^(vatn-api/|vatn-core/|pom\.xml$)'; then
+  NEEDS_BUILD=true
+  BUILD_MODULES="vatn-cli"
+  $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+  info "vatn-api or vatn-core changed — rebuilding all modules"
+else
+  echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-cli"; NEEDS_BUILD=true; }
+  if $HAS_WEBADMIN; then
+    echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && { BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"; NEEDS_BUILD=true; }
+  fi
+  # Check which installed plugins changed
   for plugin in "${INSTALLED_PLUGINS[@]}"; do
-    printf "  ${DIM}%s${RST} … " "$plugin"
-    if mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null; then
-      printf "${GRN}OK${RST}\n"
-    else
-      printf "${RED}failed${RST}\n"
-    fi
+    echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null && { BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"; NEEDS_BUILD=true; }
   done
+fi
+
+if $NEEDS_BUILD; then
+  BUILD_MODULES="${BUILD_MODULES#,}"
+  info "Building: $BUILD_MODULES"
+  if ! mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q; then
+    die "Build failed"
+  fi
+  ok "Build complete"
+elif ! $SKIP_BUILD; then
+  info "Only non-source files changed — nothing to build."
 fi
 
 # ── install ───────────────────────────────────────────────────────────────────
@@ -115,31 +127,20 @@ step "Install"
 
 mkdir -p "$VATN_HOME"/{lib,plugins,bin}
 
-# CLI JAR
 CLI_JAR=$(find vatn-cli/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
 if [ -n "$CLI_JAR" ]; then
   cp "$CLI_JAR" "$VATN_HOME/lib/vatn-cli.jar"
-  ok "vatn-cli.jar installed"
-else
-  warn "vatn-cli.jar not found in target/"
+  ok "vatn-cli.jar"
 fi
 
-# WebAdmin JAR
 if $HAS_WEBADMIN; then
   WEB_JAR=$(find vatn-webadmin/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
-  if [ -n "$WEB_JAR" ]; then
-    cp "$WEB_JAR" "$VATN_HOME/lib/vatn-webadmin.jar"
-    ok "vatn-webadmin.jar installed"
-  fi
+  [ -n "$WEB_JAR" ] && cp "$WEB_JAR" "$VATN_HOME/lib/vatn-webadmin.jar" && ok "vatn-webadmin.jar"
 fi
 
-# Plugins
 for plugin in "${INSTALLED_PLUGINS[@]}"; do
-  PLUGIN_JAR=$(find "plugins/$plugin/target" -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
-  if [ -n "$PLUGIN_JAR" ]; then
-    cp "$PLUGIN_JAR" "$VATN_HOME/plugins/$plugin.jar"
-    ok "$plugin.jar installed"
-  fi
+  JAR=$(find "plugins/$plugin/target" -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+  [ -n "$JAR" ] && cp "$JAR" "$VATN_HOME/plugins/$plugin.jar" && ok "$plugin.jar"
 done
 
 # ── done ──────────────────────────────────────────────────────────────────────
