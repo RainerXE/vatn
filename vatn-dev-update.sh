@@ -85,8 +85,8 @@ if [ -d "$VATN_HOME/plugins" ]; then
   done
 fi
 
-# Fresh clone? (no ORIG_HEAD + clean working tree) → always build everything
-if ! git rev-parse ORIG_HEAD >/dev/null 2>&1 && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
+# Fresh shallow clone? (--depth 1 → exactly 1 commit) → build everything
+if [ "$(git rev-list --count HEAD 2>/dev/null)" = "1" ] && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
   info "Fresh clone — building all modules"
   BUILD_MODULES="vatn-cli"
   $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
@@ -134,6 +134,7 @@ fi
 
 # ── install ───────────────────────────────────────────────────────────────────
 step "Install"
+set +e
 
 mkdir -p "$VATN_HOME"/{lib,plugins,bin}
 
@@ -143,7 +144,7 @@ if [ -n "$CLI_JAR" ]; then
   ok "vatn-cli.jar"
 fi
 
-if $HAS_WEBADMIN; then
+if [ "$HAS_WEBADMIN" = true ]; then
   WEB_JAR=$(find vatn-webadmin/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
   [ -n "$WEB_JAR" ] && cp "$WEB_JAR" "$VATN_HOME/lib/vatn-webadmin.jar" && ok "vatn-webadmin.jar"
 fi
