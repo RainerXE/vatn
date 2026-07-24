@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 # vatn-dev-update — detect local repo, pull, rebuild, and reinstall VATN
 
@@ -73,9 +73,6 @@ fi
 # ── detect changed modules ────────────────────────────────────────────────────
 step "Build"
 
-# Temporarily disable set -e for the build logic — we handle errors explicitly
-set +e
-
 HAS_WEBADMIN=false
 if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then HAS_WEBADMIN=true; fi
 
@@ -140,7 +137,8 @@ else
     BUILD_MODULES="${BUILD_MODULES#,}"
     if [ -n "$BUILD_MODULES" ]; then
       info "Building: $BUILD_MODULES"
-      mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
+  echo "  [debug] Running: mvn package -T $THREADS -pl $BUILD_MODULES -am -DskipTests"
+  mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
       ok "Build complete"
     else
       info "Only non-source files changed — nothing to build."
