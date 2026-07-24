@@ -73,9 +73,8 @@ public class AdminPlugin implements VNodePlugin {
 
         ctx.register(base, routes -> {
 
-            // ── HTML dashboard ───────────────────────────────────────────────
+            // ── HTML dashboard (served freely — login modal handles client-side auth) ──
             routes.get("", (req, res) -> {
-                if (!authorized(req, res)) return;
                 var contributions = ctx.getService(VAdminContributionRegistry.class)
                     .map(VAdminContributionRegistry::getContributions)
                     .orElse(List.of());
@@ -345,10 +344,12 @@ public class AdminPlugin implements VNodePlugin {
         if (!config.isAuthEnabled()) return true;
         // Accept if AuthFilter already validated (JWT from /auth/login)
         if (req.getAttribute("vatn.auth", Object.class).isPresent()) return true;
+        // Accept if static VATN_ADMIN_TOKEN matches
         String header = req.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            if (config.getToken().equals(header.substring(7).trim())) return true;
-        }
+        String staticToken = config.getToken();
+        if (staticToken != null && !staticToken.isBlank()
+                && header != null && header.startsWith("Bearer ")
+                && staticToken.equals(header.substring(7).trim())) return true;
         res.status(401)
            .header("WWW-Authenticate", "Bearer realm=\"vatn-admin\"")
            .header("Content-Type", "application/json")

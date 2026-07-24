@@ -401,7 +401,68 @@ public final class ContainersHtml {
                       background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; }
   </style>
 </head>
-<body x-data="dashboard()">
+<body x-data="dashboard()"
+      x-init="authed && $nextTick(function() { document.querySelectorAll('[hx-get]').forEach(function(el) { htmx.trigger(el, 'load'); }); })">
+
+  <!-- Auth gate (shown when no session token) -->
+  <div x-show="!authed"
+       x-data="{ loading: false, error: '' }"
+       class="fixed inset-0 z-50 flex items-center justify-center"
+       style="background: rgba(13,14,17,0.98);"
+       x-cloak>
+    <div style="width: 360px;" class="glass-card">
+      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">VATN Containers</h2>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Sign in with your admin credentials.</p>
+      <input id="login-user" type="text" placeholder="Username"
+             style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:12px; outline:none;"/>
+      <input id="login-pass" type="password" placeholder="Password"
+             style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:20px; outline:none;"/>
+      <button @click="
+        const u = document.getElementById('login-user').value.trim();
+        const p = document.getElementById('login-pass').value.trim();
+        if (!u || !p) return;
+        loading = true; error = '';
+        fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.accessToken) {
+            sessionStorage.setItem('vatn_admin_token', data.accessToken);
+            authed = true;
+            setTimeout(function() {
+              document.querySelectorAll('[hx-get]').forEach(function(el) { htmx.trigger(el, 'load'); });
+            }, 100);
+          } else {
+            error = 'Login failed: ' + (data.error || 'no accessToken');
+            loading = false;
+          }
+        }).catch(function() {
+          fetch('/vatn/admin/api/overview', {
+            headers: { 'Authorization': 'Bearer ' + p }
+          }).then(function(r) {
+            if (r.ok) {
+              sessionStorage.setItem('vatn_admin_token', p);
+              authed = true;
+              setTimeout(function() {
+                document.querySelectorAll('[hx-get]').forEach(function(el) { htmx.trigger(el, 'load'); });
+              }, 100);
+            } else {
+              error = 'Login failed (status ' + r.status + ')';
+              loading = false;
+            }
+          });
+        });
+      " style="width:100%; padding:8px 16px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:500; cursor:pointer; font-size:13px;"
+      x-text="loading ? 'Signing in\u2026' : 'Sign in'">
+        Sign in
+      </button>
+      <p x-show="error" x-text="error" style="color: var(--red); font-size: 12px; margin-top: 12px;"></p>
+    </div>
+  </div>
+
+  <!-- Authenticated content -->
+  <div x-show="authed" x-cloak>
 
   <!-- Full-width top nav bar (spans sidebar + content, like a desktop menu bar) -->
   <nav class="top-nav">
@@ -819,6 +880,7 @@ public final class ContainersHtml {
 
     function dashboard() {
       return {
+        authed: !!sessionStorage.getItem('vatn_admin_token'),
         currentTab: 'containers',
         termOpen: false,
         termTitle: '',
@@ -1051,6 +1113,7 @@ public final class ContainersHtml {
       if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
     });
   </script>
+</div> <!-- /authenticated content -->
 </body>
 </html>
 """;

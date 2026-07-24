@@ -21,6 +21,8 @@ import static dev.vatn.plugins.containers.Sanitizer.sanitizeHtml;
 
 public class ContainersPlugin implements VNodePlugin, VAdminContribution {
     private static final Logger log = LoggerFactory.getLogger(ContainersPlugin.class);
+    private static String staticToken;
+    private static boolean tokenLoaded;
 
     private final long startedAt = System.currentTimeMillis();
     private List<ContainerManager> managers;
@@ -94,10 +96,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
             routes.get("", (req, res) -> res.sendHtml(ContainersHtml.render("/vatn/containers")));
 
             // Endpoint: Node ID
-            routes.get("/api/node-id", (req, res) -> res.send(context.getNodeId()));
+            routes.get("/api/node-id", (req, res) -> {
+                if (!authorized(req, res)) return;
+                res.send(context.getNodeId());
+            });
 
             // Endpoint: System Status Overview (HTML Fragment)
             routes.get("/api/system-status", (req, res) -> {
+                if (!authorized(req, res)) return;
                 long uptimeSec = (System.currentTimeMillis() - startedAt) / 1000;
                 long h = uptimeSec / 3600;
                 long m = (uptimeSec % 3600) / 60;
@@ -120,6 +126,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Resource Usage (HTML Fragment)
             routes.get("/api/resources", (req, res) -> {
+                if (!authorized(req, res)) return;
                 MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
                 long usedMb = heap.getUsed() >> 20;
                 long maxMb = heap.getMax() >> 20;
@@ -156,6 +163,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Lattice & Services Health
             routes.get("/api/health", (req, res) -> {
+                if (!authorized(req, res)) return;
                 // Get early registered checks or dynamically map status
                 StringBuilder sb = new StringBuilder("<div style='display: flex; flex-direction: column; gap: 12px;'>");
                 
@@ -175,6 +183,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Container Listings (HTML Fragment)
             routes.get("/api/containers", (req, res) -> {
+                if (!authorized(req, res)) return;
                 String filter = req.getQueryParam("engine", "RAW");
                 
                 // Get all distrobox and toolbox container IDs for intelligent separation
@@ -257,6 +266,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Action Start Container
             routes.post("/api/action/{engine}/{id}/start", (req, res) -> {
+                if (!authorized(req, res)) return;
                 String engine = req.getPathParam("engine");
                 String id = req.getPathParam("id");
                 managers.stream()
@@ -268,6 +278,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Action Stop Container
             routes.post("/api/action/{engine}/{id}/stop", (req, res) -> {
+                if (!authorized(req, res)) return;
                 String engine = req.getPathParam("engine");
                 String id = req.getPathParam("id");
                 managers.stream()
@@ -279,11 +290,13 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: List Profiles
             routes.get("/api/profiles", (req, res) -> {
+                if (!authorized(req, res)) return;
                 res.send(json.stringify(profileService.list()));
             });
 
             // Endpoint: Get Profile by ID
             routes.get("/api/profiles/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 var p = profileService.get(req.getPathParam("id"));
                 if (p.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
                 res.send(json.stringify(p.get()));
@@ -291,6 +304,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Save Profile (create or update)
             routes.post("/api/profiles", (req, res) -> {
+                if (!authorized(req, res)) return;
                 try {
                     var p = json.parse(req.getBody(), ResourceProfile.class);
                     res.send(json.stringify(profileService.save(p)));
@@ -301,17 +315,20 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Delete Profile
             routes.delete("/api/profiles/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 profileService.delete(req.getPathParam("id"));
                 res.sendEmpty();
             });
 
             // Endpoint: List Stacks
             routes.get("/api/stacks", (req, res) -> {
+                if (!authorized(req, res)) return;
                 res.send(json.stringify(stackService.list()));
             });
 
             // Endpoint: Get Stack by ID
             routes.get("/api/stacks/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 var s = stackService.get(req.getPathParam("id"));
                 if (s.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
                 res.send(json.stringify(s.get()));
@@ -319,6 +336,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Save Stack (create or update)
             routes.post("/api/stacks", (req, res) -> {
+                if (!authorized(req, res)) return;
                 try {
                     var s = json.parse(req.getBody(), ContainerStack.class);
                     res.send(json.stringify(stackService.save(s)));
@@ -329,12 +347,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Delete Stack
             routes.delete("/api/stacks/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 stackService.delete(req.getPathParam("id"));
                 res.sendEmpty();
             });
 
             // Endpoint: Deploy Stack
             routes.post("/api/stacks/{id}/deploy", (req, res) -> {
+                if (!authorized(req, res)) return;
                 var s = stackService.get(req.getPathParam("id"));
                 if (s.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
                 try {
@@ -348,12 +368,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: List Templates
             routes.get("/api/templates", (req, res) -> {
+                if (!authorized(req, res)) return;
                 var list = templateService.list();
                 res.send(json.stringify(list));
             });
 
             // Endpoint: Get Template by ID
             routes.get("/api/templates/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 var t = templateService.get(req.getPathParam("id"));
                 if (t.isEmpty()) { res.status(404).send("{\"error\":\"Not found\"}"); return; }
                 res.send(json.stringify(t.get()));
@@ -361,6 +383,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Save Template (create or update)
             routes.post("/api/templates", (req, res) -> {
+                if (!authorized(req, res)) return;
                 try {
                     var t = json.parse(req.getBody(), ContainerTemplate.class);
                     var saved = templateService.save(t);
@@ -372,12 +395,14 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Delete Template
             routes.delete("/api/templates/{id}", (req, res) -> {
+                if (!authorized(req, res)) return;
                 templateService.delete(req.getPathParam("id"));
                 res.sendEmpty();
             });
 
             // Endpoint: Create Container from Template
             routes.post("/api/containers/create", (req, res) -> {
+                if (!authorized(req, res)) return;
                 try {
                     CreateRequest cr = json.parse(req.getBody(), CreateRequest.class);
                     ContainerTemplate template;
@@ -406,6 +431,7 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
 
             // Endpoint: Registered HTTP Routes
             routes.get("/api/routes", (req, res) -> {
+                if (!authorized(req, res)) return;
                 List<String> registered = context.getRegisteredRoutes();
                 if (registered.isEmpty()) {
                     res.sendHtml("<div style='color: var(--text-muted); font-size: 13px;'>No HTTP routes registered.</div>");
@@ -423,7 +449,10 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
             });
 
             // Force Refresh trigger (no-op endpoint to kick off syncs)
-            routes.get("/api/trigger-refresh", (req, res) -> res.sendEmpty());
+            routes.get("/api/trigger-refresh", (req, res) -> {
+                if (!authorized(req, res)) return;
+                res.sendEmpty();
+            });
         });
     }
 
@@ -435,6 +464,32 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
     @Override
     public void onShutdown() {
         log.info("Shutting down Containers Management Plugin.");
+    }
+
+    private boolean authorized(VHttpRequest req, VHttpResponse res) {
+        if (req.getAttribute("vatn.auth", Object.class).isPresent()) return true;
+        String header = req.getHeader("Authorization");
+        String token = getStaticToken();
+        if (token != null && !token.isBlank()
+                && header != null && header.startsWith("Bearer ")
+                && token.equals(header.substring(7).trim())) return true;
+        res.status(401)
+           .header("WWW-Authenticate", "Bearer realm=\"vatn\"")
+           .send("Unauthorized");
+        return false;
+    }
+
+    private static String getStaticToken() {
+        if (!tokenLoaded) {
+            staticToken = System.getenv("VATN_ADMIN_TOKEN");
+            tokenLoaded = true;
+        }
+        return staticToken;
+    }
+
+    static void setStaticToken(String token) {
+        staticToken = token;
+        tokenLoaded = true;
     }
 
     private static String sanitizeJson(String s) {

@@ -280,8 +280,9 @@ public class WebAdminCommand {
             String current = System.getenv("VATN_ADMIN_TOKEN");
             if (current == null || current.isBlank()) {
                 System.out.println("VATN_ADMIN_TOKEN is not set.");
-                System.out.println("The admin dashboard will accept any token (auth disabled).");
-                System.out.println("Set one with: vatn webadmin token <value>");
+                System.out.println("Authentication via JWT (AuthPlugin) is always active.");
+                System.out.println("Set a static bearer token with: vatn webadmin token <value>");
+                System.out.println("(The static token is accepted as a fallback when AuthPlugin is unavailable.)");
             } else {
                 System.out.println("VATN_ADMIN_TOKEN: " + current);
             }

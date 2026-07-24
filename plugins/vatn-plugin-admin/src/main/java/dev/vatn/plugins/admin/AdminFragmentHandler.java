@@ -461,10 +461,12 @@ class AdminFragmentHandler {
         if (!config.isAuthEnabled()) return true;
         // Accept if AuthFilter already validated (JWT from /auth/login)
         if (req.getAttribute("vatn.auth", Object.class).isPresent()) return true;
+        // Accept if static VATN_ADMIN_TOKEN matches
         String header = req.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            if (config.getToken().equals(header.substring(7).trim())) return true;
-        }
+        String staticToken = config.getToken();
+        if (staticToken != null && !staticToken.isBlank()
+                && header != null && header.startsWith("Bearer ")
+                && staticToken.equals(header.substring(7).trim())) return true;
         res.status(401)
            .header("WWW-Authenticate", "Bearer realm=\"vatn-admin\"")
            .header("Content-Type", "text/html;charset=UTF-8")

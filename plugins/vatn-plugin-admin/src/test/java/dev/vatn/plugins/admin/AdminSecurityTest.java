@@ -82,10 +82,11 @@ class AdminSecurityTest {
     }
 
     @Test
-    void htmlDashboardRequiresAuth() throws Exception {
+    void htmlDashboardServedFreely() throws Exception {
         startNodeWithAuth();
         var r = get(BASE, null);
-        assertEquals(401, r.statusCode());
+        assertEquals(200, r.statusCode());
+        assertTrue(r.body().contains("VATN Admin"), "HTML dashboard should contain page content");
     }
 
     @Test
