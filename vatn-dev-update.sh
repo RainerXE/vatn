@@ -73,6 +73,9 @@ fi
 # ── detect changed modules ────────────────────────────────────────────────────
 step "Build"
 
+# Temporarily disable set -e for the build logic — we handle errors explicitly
+set +e
+
 HAS_WEBADMIN=false
 if [ -f "$VATN_HOME/lib/vatn-webadmin.jar" ] || [ -f "$VATN_HOME/bin/vatn-webadmin" ]; then HAS_WEBADMIN=true; fi
 
@@ -85,12 +88,11 @@ if [ -d "$VATN_HOME/plugins" ]; then
   done
 fi
 
-# Fresh clone detection: build everything if no artifacts exist yet
-CLI_BUILT=$(find vatn-cli/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
-if [ -z "$CLI_BUILT" ] && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
+# Fresh clone detection: build everything if no build artifacts exist yet
+if [ ! -d vatn-cli/target ] && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
   info "Fresh clone — building all modules"
   BUILD_MODULES="vatn-cli"
-  [ "$HAS_WEBADMIN" = true ] && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+  if [ "$HAS_WEBADMIN" = true ]; then BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"; fi
   mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
   for plugin in "${INSTALLED_PLUGINS[@]}"; do
     mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null || true
@@ -114,7 +116,7 @@ else
     info "No source changes — nothing to build."
   elif echo "$CHANGED" | grep -qE '^(vatn-api/|vatn-core/|pom\.xml$)'; then
     BUILD_MODULES="vatn-cli"
-    $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+    if [ "$HAS_WEBADMIN" = true ]; then BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"; fi
     info "vatn-api or vatn-core changed — rebuilding all modules"
     mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
     for plugin in "${INSTALLED_PLUGINS[@]}"; do
@@ -124,12 +126,15 @@ else
   else
     BUILD_MODULES=""
     echo "$CHANGED" | grep '^vatn-cli/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-cli"
-    $HAS_WEBADMIN && echo "$CHANGED" | grep '^vatn-webadmin/' >/dev/null && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+    if [ "$HAS_WEBADMIN" = true ] && echo "$CHANGED" | grep -q '^vatn-webadmin/'; then
+      BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+    fi
     for plugin in "${INSTALLED_PLUGINS[@]}"; do
       if echo "$CHANGED" | grep "^plugins/$plugin/" >/dev/null; then
         BUILD_MODULES="$BUILD_MODULES,plugins/$plugin"
-        # Webadmin bundles its plugins in the fat JAR — rebuild it too
-        $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+        if [ "$HAS_WEBADMIN" = true ]; then
+          BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+        fi
       fi
     done
     BUILD_MODULES="${BUILD_MODULES#,}"
