@@ -413,11 +413,7 @@ public final class ContainersHtml {
     <div style="width: 360px;" class="glass-card">
       <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">VATN Containers</h2>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Sign in with your admin credentials.</p>
-      <input id="login-user" type="text" placeholder="Username"
-             style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:12px; outline:none;"/>
-      <input id="login-pass" type="password" placeholder="Password"
-             style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:20px; outline:none;"/>
-      <button @click="
+      <form @submit.prevent="
         const u = document.getElementById('login-user').value.trim();
         const p = document.getElementById('login-pass').value.trim();
         if (!u || !p) return;
@@ -453,10 +449,17 @@ public final class ContainersHtml {
             }
           });
         });
-      " style="width:100%; padding:8px 16px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:500; cursor:pointer; font-size:13px;"
-      x-text="loading ? 'Signing in\u2026' : 'Sign in'">
-        Sign in
-      </button>
+      ">
+        <input id="login-user" type="text" placeholder="Username"
+               style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:12px; outline:none;"/>
+        <input id="login-pass" type="password" placeholder="Password"
+               style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(0,0,0,0.3); color:var(--text-main); font-size:13px; margin-bottom:20px; outline:none;"/>
+        <button type="submit"
+                style="width:100%; padding:8px 16px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:500; cursor:pointer; font-size:13px;"
+                x-text="loading ? 'Signing in\u2026' : 'Sign in'">
+          Sign in
+        </button>
+      </form>
       <p x-show="error" x-text="error" style="color: var(--red); font-size: 12px; margin-top: 12px;"></p>
     </div>
   </div>
@@ -878,6 +881,21 @@ public final class ContainersHtml {
     let ws = null;
     let term = null;
 
+    (function() {
+      const origFetch = window.fetch;
+      window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (typeof url === 'string' && url.startsWith('/')) {
+          opts.headers = opts.headers || {};
+          if (!opts.headers['Authorization']) {
+            const token = sessionStorage.getItem('vatn_admin_token');
+            if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+          }
+        }
+        return origFetch.call(window, url, opts);
+      };
+    })();
+
     function dashboard() {
       return {
         authed: !!sessionStorage.getItem('vatn_admin_token'),
@@ -1112,8 +1130,14 @@ public final class ContainersHtml {
       const token = sessionStorage.getItem('vatn_admin_token');
       if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
     });
-  </script>
-</div> <!-- /authenticated content -->
+
+    document.body.addEventListener('htmx:responseError', function(evt) {
+      if (evt.detail.xhr.status === 401) {
+        sessionStorage.removeItem('vatn_admin_token');
+        Alpine.$data(document.body).authed = false;
+      }
+    });
+  </div> <!-- /authenticated content -->
 </body>
 </html>
 """;

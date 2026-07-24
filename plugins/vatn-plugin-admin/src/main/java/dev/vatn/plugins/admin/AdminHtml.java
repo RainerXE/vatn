@@ -64,11 +64,7 @@ final class AdminHtml {
   <div class="bg-gray-900 border border-gray-700 rounded-xl p-8 w-96 shadow-2xl">
     <h2 class="text-lg font-semibold text-white mb-1">VATN Admin</h2>
     <p class="text-gray-400 text-xs mb-6">Sign in with your admin credentials.</p>
-    <input id="login-user" type="text" placeholder="Username"
-           class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-3"/>
-    <input id="login-pass" type="password" placeholder="Password"
-           class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"/>
-    <button @click="
+    <form @submit.prevent="
       const u = document.getElementById('login-user').value.trim();
       const p = document.getElementById('login-pass').value.trim();
       if (!u || !p) return;
@@ -116,10 +112,17 @@ final class AdminHtml {
           }
         });
       });
-    " class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 font-medium transition"
-    x-text="loading ? 'Signing in…' : 'Sign in'">
-      Sign in
-    </button>
+    ">
+      <input id="login-user" type="text" placeholder="Username"
+             class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-3"/>
+      <input id="login-pass" type="password" placeholder="Password"
+             class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"/>
+      <button type="submit"
+              class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 font-medium transition"
+              x-text="loading ? 'Signing in\u2026' : 'Sign in'">
+        Sign in
+      </button>
+    </form>
     <p x-show="error" x-text="error" class="text-red-400 text-xs mt-3"></p>
   </div>
 </div>
@@ -189,6 +192,13 @@ final class AdminHtml {
   document.body.addEventListener('htmx:configRequest', function(evt) {
     const token = sessionStorage.getItem('vatn_admin_token');
     if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
+  });
+
+  document.body.addEventListener('htmx:responseError', function(evt) {
+    if (evt.detail.xhr.status === 401) {
+      sessionStorage.removeItem('vatn_admin_token');
+      Alpine.$data(document.body).authed = false;
+    }
   });
 
   async function restartPlugin(id) {

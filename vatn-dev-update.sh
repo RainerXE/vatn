@@ -85,19 +85,30 @@ if [ -d "$VATN_HOME/plugins" ]; then
   done
 fi
 
-# Fresh shallow clone? (--depth 1 → exactly 1 commit) → build everything
-if [ "$(git rev-list --count HEAD 2>/dev/null)" = "1" ] && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
+# Fresh clone detection: build everything if no artifacts exist yet
+CLI_BUILT=$(find vatn-cli/target -maxdepth 1 -name "*.jar" -not -name "original-*" 2>/dev/null | head -1)
+if [ -z "$CLI_BUILT" ] && [ -z "$(git diff --name-only HEAD 2>/dev/null)" ]; then
   info "Fresh clone — building all modules"
   BUILD_MODULES="vatn-cli"
-  $HAS_WEBADMIN && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
+  [ "$HAS_WEBADMIN" = true ] && BUILD_MODULES="$BUILD_MODULES,vatn-webadmin"
   mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
   for plugin in "${INSTALLED_PLUGINS[@]}"; do
     mvn package -T "$THREADS" -pl "plugins/$plugin" -am -DskipTests -q 2>/dev/null || true
   done
   ok "Build complete"
 else
-  # Changed files since last pull + local modifications (source only)
-  CHANGED=$( { git diff --name-only ORIG_HEAD HEAD 2>/dev/null; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
+  # Determine diff base — use ORIG_HEAD if available, fall back to reflog
+  DIFF_BASE=""
+  if git rev-parse --verify ORIG_HEAD >/dev/null 2>&1; then
+    DIFF_BASE="ORIG_HEAD"
+  elif git rev-parse --verify "HEAD@{1}" >/dev/null 2>&1; then
+    DIFF_BASE="HEAD@{1}"
+  fi
+  CHANGED=""
+  if [ -n "$DIFF_BASE" ]; then
+    CHANGED=$(git diff --name-only "$DIFF_BASE" HEAD 2>/dev/null || true)
+  fi
+  CHANGED=$( { echo "$CHANGED"; git diff --name-only HEAD 2>/dev/null; } | sort -u | grep -E '(\.java$|\.xml$|\.properties$)' | grep -v '/test/' || true)
 
   if [ -z "$CHANGED" ]; then
     info "No source changes — nothing to build."

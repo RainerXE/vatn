@@ -269,11 +269,17 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                 if (!authorized(req, res)) return;
                 String engine = req.getPathParam("engine");
                 String id = req.getPathParam("id");
-                managers.stream()
-                    .filter(m -> m.getEngineType().name().equalsIgnoreCase(engine))
-                    .findFirst()
-                    .ifPresent(m -> m.startContainer(id));
-                res.sendEmpty();
+                try {
+                    managers.stream()
+                        .filter(m -> m.getEngineType().name().equalsIgnoreCase(engine))
+                        .findFirst()
+                        .ifPresentOrElse(m -> m.startContainer(id),
+                            () -> { throw new RuntimeException("No manager for engine: " + engine); });
+                    res.send("{\"ok\":true}");
+                } catch (Exception e) {
+                    log.warn("Start container failed: {}", e.getMessage());
+                    res.status(500).send("{\"ok\":false,\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
             });
 
             // Endpoint: Action Stop Container
@@ -281,11 +287,17 @@ public class ContainersPlugin implements VNodePlugin, VAdminContribution {
                 if (!authorized(req, res)) return;
                 String engine = req.getPathParam("engine");
                 String id = req.getPathParam("id");
-                managers.stream()
-                    .filter(m -> m.getEngineType().name().equalsIgnoreCase(engine))
-                    .findFirst()
-                    .ifPresent(m -> m.stopContainer(id));
-                res.sendEmpty();
+                try {
+                    managers.stream()
+                        .filter(m -> m.getEngineType().name().equalsIgnoreCase(engine))
+                        .findFirst()
+                        .ifPresentOrElse(m -> m.stopContainer(id),
+                            () -> { throw new RuntimeException("No manager for engine: " + engine); });
+                    res.send("{\"ok\":true}");
+                } catch (Exception e) {
+                    log.warn("Stop container failed: {}", e.getMessage());
+                    res.status(500).send("{\"ok\":false,\"error\":\"" + sanitizeJson(e.getMessage()) + "\"}");
+                }
             });
 
             // Endpoint: List Profiles
