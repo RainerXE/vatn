@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
+set -euo pipefail
 
 # vatn-dev-update — detect local repo, pull, rebuild, and reinstall VATN
 
@@ -51,15 +51,18 @@ if [ -n "$VATN_SRC_DIR" ] && [ -f "$VATN_SRC_DIR/pom.xml" ]; then
 elif [ -f "pom.xml" ] && grep -q "vatn-parent" pom.xml 2>/dev/null; then
   SRC_DIR="$(pwd)"
   info "Using current directory: $SRC_DIR"
-elif [ -d "$HOME/Development/vatn" ] && [ -f "$HOME/Development/vatn/pom.xml" ]; then
-  SRC_DIR="$HOME/Development/vatn"
-  info "Using existing source at: $SRC_DIR"
 else
-  SRC_DIR="/tmp/vatn-dev-update-$$"
-  info "Cloning ${ORG}/${REPO} (branch: ${BRANCH}) …"
-  git clone --depth 1 --branch "$BRANCH" "https://github.com/${ORG}/${REPO}.git" "$SRC_DIR" \
-    || die "git clone failed"
-  ok "Cloned to $SRC_DIR"
+  # Persistent cache clone — avoids full rebuilds on subsequent runs.
+  # Does NOT touch ~/Development/vatn (your active workspace).
+  SRC_DIR="$VATN_HOME/src"
+  if [ -d "$SRC_DIR/.git" ]; then
+    info "Using cached source at: $SRC_DIR"
+  else
+    info "Cloning ${ORG}/${REPO} (branch: ${BRANCH}) to $SRC_DIR …"
+    git clone --depth 1 --branch "$BRANCH" "https://github.com/${ORG}/${REPO}.git" "$SRC_DIR" \
+      || die "git clone failed"
+    ok "Cloned to $SRC_DIR"
+  fi
 fi
 
 cd "$SRC_DIR"
@@ -140,7 +143,6 @@ else
     BUILD_MODULES="${BUILD_MODULES#,}"
     if [ -n "$BUILD_MODULES" ]; then
       info "Building: $BUILD_MODULES"
-  echo "  [debug] Running: mvn package -T $THREADS -pl $BUILD_MODULES -am -DskipTests"
   mvn package -T "$THREADS" -pl "$BUILD_MODULES" -am -DskipTests -q || die "Build failed"
       ok "Build complete"
     else
