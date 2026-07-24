@@ -51,6 +51,9 @@ if [ -n "$VATN_SRC_DIR" ] && [ -f "$VATN_SRC_DIR/pom.xml" ]; then
 elif [ -f "pom.xml" ] && grep -q "vatn-parent" pom.xml 2>/dev/null; then
   SRC_DIR="$(pwd)"
   info "Using current directory: $SRC_DIR"
+elif [ -d "$HOME/Development/vatn" ] && [ -f "$HOME/Development/vatn/pom.xml" ]; then
+  SRC_DIR="$HOME/Development/vatn"
+  info "Using existing source at: $SRC_DIR"
 else
   SRC_DIR="/tmp/vatn-dev-update-$$"
   info "Cloning ${ORG}/${REPO} (branch: ${BRANCH}) …"
